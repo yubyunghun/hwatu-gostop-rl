@@ -1,0 +1,12 @@
+# torch is installed separately from the CPU-only index:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+numpy
+pandas
+matplotlib
+gymnasium
+sb3-contrib
+stable-baselines3
+fastapi
+uvicorn[standard]
+pydantic
+pytest

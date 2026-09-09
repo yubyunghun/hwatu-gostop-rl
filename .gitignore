@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+checkpoints/*.zip
+checkpoints/*.json
+*.egg-info/
+.ipynb_checkpoints/
+
+node_modules/
+dist/
+web/.vite/
+
+.DS_Store
+Thumbs.db
