@@ -35,6 +35,13 @@ class SelfPlayCheckpointCallback(BaseCallback):
         if not self.log_path.exists():
             self.log_path.write_text("step,vs_random_win_rate,vs_heuristic_win_rate\n")
 
+    def _on_training_start(self) -> None:
+        # When resuming from a checkpoint, num_timesteps already reflects the
+        # prior run's progress -- start the save/eval counters from there instead
+        # of 0, or the very first _on_step() would immediately re-save/re-eval.
+        self._last_save = self.num_timesteps
+        self._last_eval = self.num_timesteps
+
     def _on_step(self) -> bool:
         if self.num_timesteps - self._last_save >= self.save_freq:
             self._last_save = self.num_timesteps
@@ -57,15 +64,18 @@ class SelfPlayCheckpointCallback(BaseCallback):
 
 def train(total_timesteps: int, checkpoint_dir: Path = DEFAULT_CHECKPOINT_DIR, save_freq: int = 5000,
           eval_freq: int = 5000, eval_episodes: int = 50, n_steps: int = 1024, batch_size: int = 64,
-          seed: int = 0, verbose: int = 1):
+          seed: int = 0, verbose: int = 1, resume_from: Path | None = None):
     checkpoint_dir = Path(checkpoint_dir)
     checkpoint_pool = CheckpointPool(checkpoint_dir)
     env = GoStopSelfPlayEnv(checkpoint_pool, seed=seed)
-    model = MaskablePPO("MlpPolicy", env, n_steps=n_steps, batch_size=batch_size, verbose=verbose,
-                         seed=seed, policy_kwargs=dict(net_arch=[256, 256]))
+    if resume_from is not None:
+        model = MaskablePPO.load(str(resume_from), env=env)
+    else:
+        model = MaskablePPO("MlpPolicy", env, n_steps=n_steps, batch_size=batch_size, verbose=verbose,
+                             seed=seed, policy_kwargs=dict(net_arch=[256, 256]))
     callback = SelfPlayCheckpointCallback(checkpoint_pool, save_freq, eval_freq, eval_episodes,
                                            checkpoint_dir / "training_log.csv", verbose=verbose)
-    model.learn(total_timesteps=total_timesteps, callback=callback)
+    model.learn(total_timesteps=total_timesteps, callback=callback, reset_num_timesteps=resume_from is None)
     final_path = checkpoint_pool.save(model, model.num_timesteps)
     return model, final_path
 
@@ -80,7 +90,10 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--checkpoint-dir", type=str, default=str(DEFAULT_CHECKPOINT_DIR))
+    parser.add_argument("--resume-from", type=str, default=None,
+                         help="path to a checkpoint .zip to continue training from")
     args = parser.parse_args()
     train(args.timesteps, checkpoint_dir=Path(args.checkpoint_dir), save_freq=args.save_freq,
           eval_freq=args.eval_freq, eval_episodes=args.eval_episodes, n_steps=args.n_steps,
-          batch_size=args.batch_size, seed=args.seed)
+          batch_size=args.batch_size, seed=args.seed,
+          resume_from=Path(args.resume_from) if args.resume_from else None)
