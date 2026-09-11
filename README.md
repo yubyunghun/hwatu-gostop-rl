@@ -98,15 +98,35 @@ likely causes, roughly in order of suspicion:
    entropy coefficient, learning rate) picked before seeing any results, not tuned in response to
    the plateau.
 
-More timesteps alone (150k -> 650k) did not resolve this, which is itself the useful finding: it
-points at the league/reward design rather than "just needs to train longer" as the next thing to
-change. `rl/evaluate.py` is the harness behind every number here — it alternates both the dealer
-and which seat each policy occupies across episodes so neither a dealer-order nor a seat-index
-artifact can bias a reported win rate.
+More timesteps alone (150k -> 650k) did not resolve this, which is itself a useful finding: it
+argues against "just needs to train longer" as the fix.
+
+### Ablation: does the self-play league actually matter here?
+
+![Ablation comparison](checkpoints/ablation_comparison.png)
+
+Suspicion #2 above — that the league's opponent mix might be the bottleneck — is directly
+testable: train a second agent against *only* a frozen heuristic opponent for the same 650k
+timesteps (`--opponent heuristic`, no checkpoint pool at all) and compare vs-heuristic win rate
+curves head to head.
+
+**Result: they're statistically indistinguishable.** Both the league run and the single-opponent
+run oscillate in the same ~15-30% band against the heuristic for the entire 650k steps, trading
+the lead back and forth with no consistent gap between them. If the league's opponent mix were the
+real bottleneck, training against the heuristic directly — the strongest, most consistent opponent
+available — should have produced a visibly steeper improvement. It didn't.
+
+That's a meaningful negative result: it shifts the likely explanation away from league composition
+and toward **reward sparsity** and **untuned hyperparameters** (suspicions #1 and #3) as the more
+plausible reasons for the plateau, since removing the league entirely and training against the
+"hardest" fixed opponent the whole time still didn't break past it. A next step worth trying is
+reward shaping (small intermediate rewards for captures, not just the terminal score) rather than
+further league or hyperparameter changes.
 
 `rl/evaluate.py` is the harness behind every number here — it alternates both the dealer and which
 seat each policy occupies across episodes so neither a dealer-order nor a seat-index artifact can
-bias a reported win rate.
+bias a reported win rate. `rl/plotting.py --compare-ablation <path>` produces the comparison plot
+above from any two `training_log.csv` files.
 
 ## Testing
 
