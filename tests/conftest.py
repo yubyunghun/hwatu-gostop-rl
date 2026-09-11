@@ -1,4 +1,5 @@
 from engine.cards import month_of
+from engine.engine import GoStopEngine
 from engine.state import DecisionNode, GameState, PlayerState
 
 
@@ -24,3 +25,13 @@ def make_state(num_players=2, hands=None, field_ids=None, deck=None, turn=0, dea
         dealer=dealer,
         pending_decision=DecisionNode.PLAY_CARD,
     )
+
+
+def make_engine(**kwargs) -> GoStopEngine:
+    """Builds a GoStopEngine around a fully-controlled make_state(...), bypassing
+    GoStopEngine.__init__'s normal random deal -- for tests that need to drive
+    engine-level methods (available_bombs, declare_bomb, ...) against a specific,
+    hand-constructed scenario rather than a real deal."""
+    engine = GoStopEngine.__new__(GoStopEngine)
+    engine.state = make_state(**kwargs)
+    return engine
