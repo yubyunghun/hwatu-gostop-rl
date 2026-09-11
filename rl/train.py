@@ -13,6 +13,7 @@ from stable_baselines3.common.callbacks import BaseCallback
 from rl.baselines.heuristic_agent import heuristic_policy
 from rl.baselines.random_agent import random_policy
 from rl.checkpoint_pool import CheckpointPool
+from rl.env import GoStopEnv
 from rl.evaluate import run_match
 from rl.model_agent import make_model_policy
 from rl.self_play_env import GoStopSelfPlayEnv
@@ -64,10 +65,17 @@ class SelfPlayCheckpointCallback(BaseCallback):
 
 def train(total_timesteps: int, checkpoint_dir: Path = DEFAULT_CHECKPOINT_DIR, save_freq: int = 5000,
           eval_freq: int = 5000, eval_episodes: int = 50, n_steps: int = 1024, batch_size: int = 64,
-          seed: int = 0, verbose: int = 1, resume_from: Path | None = None):
+          seed: int = 0, verbose: int = 1, resume_from: Path | None = None, opponent_policy=None):
+    """opponent_policy=None (default) trains against the self-play league (see
+    CheckpointPool). Passing a fixed policy (e.g. heuristic_policy) instead trains
+    against only that opponent the whole run -- used for the league-vs-single-
+    opponent ablation; see README's Results section for why that comparison matters."""
     checkpoint_dir = Path(checkpoint_dir)
     checkpoint_pool = CheckpointPool(checkpoint_dir)
-    env = GoStopSelfPlayEnv(checkpoint_pool, seed=seed)
+    if opponent_policy is None:
+        env = GoStopSelfPlayEnv(checkpoint_pool, seed=seed)
+    else:
+        env = GoStopEnv(opponent_policy=opponent_policy, seed=seed)
     if resume_from is not None:
         model = MaskablePPO.load(str(resume_from), env=env)
     else:
@@ -92,8 +100,13 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint-dir", type=str, default=str(DEFAULT_CHECKPOINT_DIR))
     parser.add_argument("--resume-from", type=str, default=None,
                          help="path to a checkpoint .zip to continue training from")
+    parser.add_argument("--opponent", choices=["league", "heuristic", "random"], default="league",
+                         help="'league' (default) trains via self-play; 'heuristic'/'random' train "
+                              "against only that fixed opponent the whole run (ablation mode)")
     args = parser.parse_args()
+    opponent_policy = {"league": None, "heuristic": heuristic_policy, "random": random_policy}[args.opponent]
     train(args.timesteps, checkpoint_dir=Path(args.checkpoint_dir), save_freq=args.save_freq,
           eval_freq=args.eval_freq, eval_episodes=args.eval_episodes, n_steps=args.n_steps,
           batch_size=args.batch_size, seed=args.seed,
-          resume_from=Path(args.resume_from) if args.resume_from else None)
+          resume_from=Path(args.resume_from) if args.resume_from else None,
+          opponent_policy=opponent_policy)
