@@ -10,3 +10,4 @@ fastapi
 uvicorn[standard]
 pydantic
 pytest
+httpx  # for fastapi.testclient.TestClient
