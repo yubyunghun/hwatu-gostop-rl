@@ -74,12 +74,35 @@ reasoning for the genuinely contested ones (ppeok sequencing especially). Every 
 
 ![Training curve](checkpoints/training_curve.png)
 
-Reported honestly rather than cherry-picked: the first 150k-step run shows a real, if noisy, upward
-trend against the **random** baseline (from ~25% up to a steady 55-65%, crossing the 50% line
-around 60k steps), but had **not** yet clearly beaten the **heuristic** baseline (mostly 15-25%,
-one spike to 37%). That's a legitimate partial result for an imperfect-information card game
-trained CPU-only — evidence of real learning, without yet closing the gap on a stronger opponent.
-A longer continuation run is tracked in the same `checkpoints/training_log.csv` / curve above.
+Reported honestly rather than cherry-picked, across a full 650k-timestep run (an initial 150k plus
+a 500k continuation from that checkpoint):
+
+- **vs. random**: real learning, and it holds up. Win rate climbs from ~25% to a 50-65% band within
+  the first ~60k steps and stays there for the rest of training — the agent reliably beats random
+  play, it just doesn't keep improving past that plateau.
+- **vs. heuristic**: never sustainably crosses 50%. It oscillates noisily in roughly a 10-37% band
+  the entire run, including a visible dip to its worst performance (~7-15%) between 350k-450k steps
+  before partially recovering back to 20-33% by the end. There is no clean upward trend against the
+  stronger baseline across 650k steps of training.
+
+**Reading this honestly:** the agent learned a real policy (decisively better than random), but
+plateaued below the heuristic baseline rather than closing the gap with more timesteps alone. The
+likely causes, roughly in order of suspicion:
+1. **Reward sparsity** — a single terminal reward over an ~10-20 step episode is a long credit
+   assignment horizon for vanilla PPO with no shaping.
+2. **League composition** — the self-play pool is only 10% random / 10% heuristic / 80% recent
+   checkpoints; if the checkpoints in that 80% are themselves not much stronger than random, the
+   agent is rarely practicing against something as tough as the heuristic actually is, so there's
+   little pressure to specifically get better than it.
+3. **No hyperparameter tuning** — both runs used the same default-ish PPO settings (net size,
+   entropy coefficient, learning rate) picked before seeing any results, not tuned in response to
+   the plateau.
+
+More timesteps alone (150k -> 650k) did not resolve this, which is itself the useful finding: it
+points at the league/reward design rather than "just needs to train longer" as the next thing to
+change. `rl/evaluate.py` is the harness behind every number here — it alternates both the dealer
+and which seat each policy occupies across episodes so neither a dealer-order nor a seat-index
+artifact can bias a reported win rate.
 
 `rl/evaluate.py` is the harness behind every number here — it alternates both the dealer and which
 seat each policy occupies across episodes so neither a dealer-order nor a seat-index artifact can
