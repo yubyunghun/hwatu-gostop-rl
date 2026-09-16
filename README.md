@@ -119,14 +119,35 @@ available — should have produced a visibly steeper improvement. It didn't.
 That's a meaningful negative result: it shifts the likely explanation away from league composition
 and toward **reward sparsity** and **untuned hyperparameters** (suspicions #1 and #3) as the more
 plausible reasons for the plateau, since removing the league entirely and training against the
-"hardest" fixed opponent the whole time still didn't break past it. A next step worth trying is
-reward shaping (small intermediate rewards for captures, not just the terminal score) rather than
-further league or hyperparameter changes.
+"hardest" fixed opponent the whole time still didn't break past it.
+
+### Fix attempt: potential-based reward shaping
+
+![Reward shaping comparison](checkpoints/shaping_comparison.png)
+
+Suspicion #1 — reward sparsity — is addressed directly in `rl/env.py`: on top of the existing
+terminal reward, every step now also returns a dense shaping term based on the live raw score
+differential (own captured-card value minus opponent's), which telescopes cleanly across an episode
+so it adds signal without changing what's ultimately being optimized. Trained fresh for the same
+650k timesteps, same hyperparameters, same league setup as the original run — the only variable
+changed is the reward function (see `rl/env.py`'s `reward_shaping` flag and its docstring for the
+exact math).
+
+**Result: a real, if modest, improvement — concentrated in the second half of training.** Early on
+(0-350k) the two runs are comparable, sometimes with the original slightly ahead. From ~400k
+onward, the shaped run pulls ahead and stays ahead: its last-6-checkpoint average vs-heuristic win
+rate is **31.7%** versus the original's **25.6%**, and it reaches a new all-time-best single
+checkpoint of **40%** (vs. 36.7% for the original, 40% for the earlier ablation — so shaping ties
+the best result seen so far rather than clearly exceeding it, but does so more consistently late in
+training rather than as an isolated spike). This reads as "helped, and the mechanism behind why
+(more frequent credit assignment) makes sense," not as "solved it" — still well short of
+consistently beating the heuristic, and the improvement is a trend across noisy points, not a clean
+step change. Untuned hyperparameters remain a plausible further lever if pursued.
 
 `rl/evaluate.py` is the harness behind every number here — it alternates both the dealer and which
 seat each policy occupies across episodes so neither a dealer-order nor a seat-index artifact can
-bias a reported win rate. `rl/plotting.py --compare-ablation <path>` produces the comparison plot
-above from any two `training_log.csv` files.
+bias a reported win rate. `rl/plotting.py`'s `plot_comparison()` produces any before/after
+comparison plot like the two above from two `training_log.csv` files.
 
 ## Testing
 

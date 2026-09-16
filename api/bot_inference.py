@@ -8,7 +8,9 @@ from pathlib import Path
 from rl.baselines.heuristic_agent import heuristic_policy
 from rl.model_agent import make_model_policy
 
-DEFAULT_CHECKPOINT_DIR = Path(__file__).resolve().parent.parent / "checkpoints"
+# Points at whichever checkpoint directory holds the current best model -- update
+# this when a new experiment (see README's Results section) becomes the best one.
+DEFAULT_CHECKPOINT_DIR = Path(__file__).resolve().parent.parent / "checkpoints_reward_shaping"
 
 
 def latest_checkpoint(checkpoint_dir: Path = DEFAULT_CHECKPOINT_DIR) -> Path | None:
