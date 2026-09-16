@@ -5,8 +5,16 @@ This is the shape self_play_env.py (phase 4) builds on, swapping in a policy
 sampled from a checkpoint pool instead of a fixed baseline.
 
 Episode = one hand (see RULES.md section 10 -- go/stop is inherently per-hand).
-Reward is 0 until termination, then the signed final score differential divided
-by SCORE_REWARD_SCALE (nagari -> 0 for both sides).
+
+Reward has two parts. A terminal component (unchanged from the original design) equal to the
+signed final settlement differential divided by SCORE_REWARD_SCALE (nagari -> 0 for both sides).
+And, when reward_shaping=True (the default), a dense potential-based shaping component added every
+step: phi(state) = own raw in-hand score minus opponent's, so shaping reward = (phi_after -
+phi_before)/SCORE_REWARD_SCALE for that step. This telescopes across an episode to just
+phi_final/SCORE_REWARD_SCALE, so it's a genuinely additional, frequent signal ("am I outscoring my
+opponent right now") layered on top of the terminal outcome, not a replacement for it -- raw
+in-hand score doesn't include go/stop multipliers, so it can't collapse into the terminal reward.
+See the project README's Results section for why this was added and whether it helped.
 """
 
 import random
@@ -16,6 +24,7 @@ import numpy as np
 from gymnasium import spaces
 
 from engine.engine import GoStopEngine
+from engine.go_stop import current_raw_score
 from rl.action_space import ACTION_SIZE, apply_action, legal_action_mask
 from rl.baselines.random_agent import random_policy
 from rl.obs_encoding import OBS_SIZE, encode
@@ -26,7 +35,8 @@ SCORE_REWARD_SCALE = 40.0
 class GoStopEnv(gym.Env):
     metadata = {"render_modes": []}
 
-    def __init__(self, opponent_policy=random_policy, num_players: int = 2, seed: int | None = None):
+    def __init__(self, opponent_policy=random_policy, num_players: int = 2, seed: int | None = None,
+                 reward_shaping: bool = True):
         super().__init__()
         if num_players != 2:
             raise ValueError("GoStopEnv v1 only supports 2 players (see project plan scope)")
@@ -34,9 +44,11 @@ class GoStopEnv(gym.Env):
         self.observation_space = spaces.Box(low=0.0, high=np.inf, shape=(OBS_SIZE,), dtype=np.float32)
         self.opponent_policy = opponent_policy
         self.num_players = num_players
+        self.reward_shaping = reward_shaping
         self._rng = np.random.default_rng(seed)
         self.engine: GoStopEngine | None = None
         self.learner_seat: int = 0
+        self._last_potential: float = 0.0
 
     def action_masks(self) -> np.ndarray:
         return legal_action_mask(self.engine)
@@ -49,6 +61,7 @@ class GoStopEnv(gym.Env):
         self.learner_seat = int(self._rng.integers(0, self.num_players))
         self.engine = GoStopEngine(num_players=self.num_players, dealer=0, rng=engine_rng)
         self._run_opponent_turns()
+        self._last_potential = self._potential()
         return encode(self.engine), {}
 
     def step(self, action: int):
@@ -60,7 +73,18 @@ class GoStopEnv(gym.Env):
 
         terminated = self.engine.state.hand_over
         reward = self._terminal_reward() if terminated else 0.0
+        if self.reward_shaping:
+            new_potential = self._potential()
+            reward += (new_potential - self._last_potential) / SCORE_REWARD_SCALE
+            self._last_potential = new_potential
         return encode(self.engine), reward, terminated, False, {}
+
+    def _potential(self) -> float:
+        s = self.engine.state
+        opponent_seat = s.opponents(self.learner_seat)[0]
+        own = current_raw_score(s, self.learner_seat).total
+        opp = current_raw_score(s, opponent_seat).total
+        return float(own - opp)
 
     def _terminal_reward(self) -> float:
         result = self.engine.state.result

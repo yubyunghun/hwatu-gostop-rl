@@ -1,16 +1,19 @@
 import numpy as np
+import pytest
 
+from engine.go_stop import current_raw_score
 from engine.state import DecisionNode
 from rl.action_space import legal_action_mask
-from rl.env import GoStopEnv
+from rl.env import GoStopEnv, SCORE_REWARD_SCALE
 from rl.obs_encoding import OBS_SIZE
 
 
-def _random_full_episode(seed: int):
-    env = GoStopEnv(seed=seed)
+def _random_full_episode(seed: int, **env_kwargs):
+    env = GoStopEnv(seed=seed, **env_kwargs)
     obs, info = env.reset(seed=seed)
     rng = np.random.default_rng(seed)
     total_steps = 0
+    total_reward = 0.0
     terminated = truncated = False
     while not (terminated or truncated):
         total_steps += 1
@@ -20,8 +23,9 @@ def _random_full_episode(seed: int):
         assert len(legal) > 0
         action = int(rng.choice(legal))
         obs, reward, terminated, truncated, info = env.step(action)
+        total_reward += reward
         assert obs.shape == (OBS_SIZE, )
-    return env, obs, reward
+    return env, obs, reward, total_reward
 
 
 def test_reset_returns_correctly_shaped_observation():
@@ -33,19 +37,51 @@ def test_reset_returns_correctly_shaped_observation():
 
 def test_episodes_terminate_across_many_seeds():
     for seed in range(30):
-        env, obs, reward = _random_full_episode(seed)
+        env, obs, reward, total_reward = _random_full_episode(seed)
         assert env.engine.state.hand_over
         assert isinstance(reward, float)
 
 
-def test_reward_matches_engine_result_scaled():
-    env, obs, reward = _random_full_episode(7)
+def test_total_episode_reward_equals_shaping_plus_terminal():
+    # Shaping telescopes across the whole episode to just the final potential
+    # (own raw score minus opponent's, both via current_raw_score), since the
+    # potential starts at 0 at reset(). Total reward should equal that plus the
+    # unchanged terminal component -- shaping doesn't silently replace it.
+    env, obs, reward, total_reward = _random_full_episode(7, reward_shaping=True)
     result = env.engine.state.result
-    if result.nagari:
-        assert reward == 0.0
-    else:
-        expected = result.scores[env.learner_seat] / 40.0
-        assert reward == expected
+    opponent_seat = 1 - env.learner_seat
+    final_potential = (current_raw_score(env.engine.state, env.learner_seat).total
+                        - current_raw_score(env.engine.state, opponent_seat).total)
+    terminal = 0.0 if result.nagari else result.scores[env.learner_seat] / SCORE_REWARD_SCALE
+    expected_total = final_potential / SCORE_REWARD_SCALE + terminal
+    assert total_reward == pytest.approx(expected_total, abs=1e-9)
+
+
+def test_reward_shaping_false_reproduces_original_sparse_reward():
+    env, obs, reward, total_reward = _random_full_episode(7, reward_shaping=False)
+    result = env.engine.state.result
+    expected = 0.0 if result.nagari else result.scores[env.learner_seat] / SCORE_REWARD_SCALE
+    assert reward == expected
+    assert total_reward == expected  # every non-terminal step was exactly 0
+
+
+def test_a_capturing_step_produces_nonzero_shaping_reward():
+    # With shaping on, a step where the learner's score pulls ahead of a flat
+    # opponent score must return a nonzero reward mid-episode -- previously this
+    # was always exactly 0.0 until the hand ended.
+    env = GoStopEnv(seed=3, reward_shaping=True)
+    env.reset(seed=3)
+    found_nonzero_mid_episode = False
+    for _ in range(100):
+        if env.engine.state.hand_over:
+            break
+        mask = env.action_masks()
+        legal = np.flatnonzero(mask)
+        _, reward, terminated, _, _ = env.step(int(legal[0]))
+        if not terminated and reward != 0.0:
+            found_nonzero_mid_episode = True
+            break
+    assert found_nonzero_mid_episode
 
 
 def test_action_masks_never_empty_mid_episode():
