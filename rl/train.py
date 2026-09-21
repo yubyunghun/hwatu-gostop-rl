@@ -65,11 +65,17 @@ class SelfPlayCheckpointCallback(BaseCallback):
 
 def train(total_timesteps: int, checkpoint_dir: Path = DEFAULT_CHECKPOINT_DIR, save_freq: int = 5000,
           eval_freq: int = 5000, eval_episodes: int = 50, n_steps: int = 1024, batch_size: int = 64,
-          seed: int = 0, verbose: int = 1, resume_from: Path | None = None, opponent_policy=None):
+          seed: int = 0, verbose: int = 1, resume_from: Path | None = None, opponent_policy=None,
+          ent_coef: float = 0.0):
     """opponent_policy=None (default) trains against the self-play league (see
     CheckpointPool). Passing a fixed policy (e.g. heuristic_policy) instead trains
     against only that opponent the whole run -- used for the league-vs-single-
-    opponent ablation; see README's Results section for why that comparison matters."""
+    opponent ablation; see README's Results section for why that comparison matters.
+
+    ent_coef defaults to 0.0, matching MaskablePPO/SB3's own default (no explicit
+    entropy bonus). Raising it (e.g. 0.01, a common PPO literature default) adds an
+    exploration incentive -- see README for why this was tried as the next lever
+    after reward shaping."""
     checkpoint_dir = Path(checkpoint_dir)
     checkpoint_pool = CheckpointPool(checkpoint_dir)
     if opponent_policy is None:
@@ -80,7 +86,7 @@ def train(total_timesteps: int, checkpoint_dir: Path = DEFAULT_CHECKPOINT_DIR, s
         model = MaskablePPO.load(str(resume_from), env=env)
     else:
         model = MaskablePPO("MlpPolicy", env, n_steps=n_steps, batch_size=batch_size, verbose=verbose,
-                             seed=seed, policy_kwargs=dict(net_arch=[256, 256]))
+                             seed=seed, ent_coef=ent_coef, policy_kwargs=dict(net_arch=[256, 256]))
     callback = SelfPlayCheckpointCallback(checkpoint_pool, save_freq, eval_freq, eval_episodes,
                                            checkpoint_dir / "training_log.csv", verbose=verbose)
     model.learn(total_timesteps=total_timesteps, callback=callback, reset_num_timesteps=resume_from is None)
@@ -103,10 +109,13 @@ if __name__ == "__main__":
     parser.add_argument("--opponent", choices=["league", "heuristic", "random"], default="league",
                          help="'league' (default) trains via self-play; 'heuristic'/'random' train "
                               "against only that fixed opponent the whole run (ablation mode)")
+    parser.add_argument("--ent-coef", type=float, default=0.0,
+                         help="PPO entropy bonus coefficient (default 0.0 = SB3's own default, no "
+                              "explicit exploration incentive)")
     args = parser.parse_args()
     opponent_policy = {"league": None, "heuristic": heuristic_policy, "random": random_policy}[args.opponent]
     train(args.timesteps, checkpoint_dir=Path(args.checkpoint_dir), save_freq=args.save_freq,
           eval_freq=args.eval_freq, eval_episodes=args.eval_episodes, n_steps=args.n_steps,
           batch_size=args.batch_size, seed=args.seed,
           resume_from=Path(args.resume_from) if args.resume_from else None,
-          opponent_policy=opponent_policy)
+          opponent_policy=opponent_policy, ent_coef=args.ent_coef)
