@@ -142,16 +142,38 @@ the best result seen so far rather than clearly exceeding it, but does so more c
 training rather than as an isolated spike). This reads as "helped, and the mechanism behind why
 (more frequent credit assignment) makes sense," not as "solved it" — still well short of
 consistently beating the heuristic, and the improvement is a trend across noisy points, not a clean
-step change. Untuned hyperparameters remain a plausible further lever if pursued.
+step change.
+
+### Fix attempt: entropy bonus (on top of reward shaping)
+
+![Entropy comparison](checkpoints/entropy_comparison.png)
+
+Suspicion #3 — untuned hyperparameters — is the last one on the list. `MaskablePPO`/SB3 defaults to
+`ent_coef=0.0`, i.e. no explicit entropy bonus encouraging exploration; a classic self-play failure
+mode is the policy converging early against a limited opponent pool and never trying alternatives
+that might actually be stronger. Trained fresh for the same 650k timesteps on top of the (now
+default-on) reward shaping, changing only `ent_coef` from 0.0 to 0.01 (`rl/train.py --ent-coef`).
+
+**Result: a real effect, but not a net improvement — entropy helped early and hurt late.** For the
+first 150k steps, the entropy run is clearly ahead (25.6% vs. the no-entropy baseline's 16.7%,
+first-6-checkpoint average) — more exploration accelerated early learning, as expected. But the
+pattern reverses for the rest of training: by the last 6 checkpoints the no-entropy baseline is
+ahead (31.7% vs. entropy's 26.1%), and its overall mean (23.2%) and peak (40%) both edge out the
+entropy run's (21.5%, 36.7%). This is a textbook PPO entropy tradeoff: exploration speeds up early
+learning but the same pressure to stay stochastic works against the policy sharpening into its best
+exploitation strategy later. Net effect here was roughly a wash-to-slightly-negative over the full
+run, so `ent_coef=0.0` (the default) stays the better choice for this problem at this training
+budget — a decaying entropy schedule (high early, low late) would be the natural next thing to try
+if pursuing this further, rather than a single fixed coefficient.
 
 `rl/evaluate.py` is the harness behind every number here — it alternates both the dealer and which
 seat each policy occupies across episodes so neither a dealer-order nor a seat-index artifact can
 bias a reported win rate. `rl/plotting.py`'s `plot_comparison()` produces any before/after
-comparison plot like the two above from two `training_log.csv` files.
+comparison plot like the ones above from two `training_log.csv` files.
 
 ## Testing
 
-78 pytest tests, including:
+80 pytest tests, including:
 - Full rules coverage (cards, dealing, capture/ppeok/ttadak/bombs, scoring, go/stop/nagari) with
   hand-checked example hands
 - A 100-seed randomized full-hand simulation that checks card conservation and termination on every
@@ -210,7 +232,7 @@ rl/        Gym env, action/observation encoding, baselines, self-play PPO traini
 api/       FastAPI session + bot-inference layer
 web/       React + TypeScript frontend
 scripts/   play_cli.py -- terminal play for manual sanity-checking
-tests/     78 pytest tests across all of the above
+tests/     80 pytest tests across all of the above
 checkpoints/  trained model checkpoints (gitignored) + training_log.csv + the curve plot
 ```
 
