@@ -133,23 +133,40 @@ they should be read as noisy monitoring, not as evidence.
 
 </details>
 
-### Where the bottleneck probably is
+### Diagnosing the plateau: can the network represent the heuristic at all?
 
-Four different knobs (opponent pool, reward density, exploration bonus, more timesteps) all land at
-the same ~23-27%, which points away from any one of them and toward something more structural. The
-leading suspect is the observation and architecture: the network sees flattened 48-slot multi-hot
-vectors, so to know that a hand card captures a field card it has to learn "same month" as a relation
-between slot indices, which the heuristic gets for free from the rules. A direct test is behavior
-cloning: train the same network by supervised learning to imitate the heuristic. High agreement means
-the representation is fine and RL is the weak link; low agreement means the observation encoding is
-the bottleneck. That is the next experiment.
+Four different knobs all landing at ~23-27% pointed at something structural, and my leading suspect
+was the observation: the network sees flattened 48-slot multi-hot vectors, so "this hand card shares
+a month with that field card" has to be learned as a relation between slot indices, while the
+heuristic reads it straight off the rules. A direct test is behavior cloning (`rl/behavior_cloning.py`):
+train the *same* network by supervised learning to imitate the heuristic. If it can't, the
+representation is the bottleneck; if it can, RL is the weak link.
+
+Data: 20,000 games (~400k states), every state labeled with the heuristic's action, with 20% of the
+*executed* moves randomized so the states aren't only the ones the heuristic itself reaches.
+
+| | Result |
+|---|---|
+| Agreement with the heuristic on held-out states | **95.9%** (random guessing: 29.9%) |
+| ...by decision type | play-card 95.7%, bomb 100%, go/stop 98.5% |
+| Epochs to reach ~96% | about 5 |
+| Cloned model vs. heuristic (300 games) | **39.3%** [34.0, 45.0], 118 wins to 122 |
+| Heuristic vs. itself (reference) | 40.0% [34.6, 45.6] |
+| Cloned model vs. random (300 games) | 73.3% [68.1, 78.0] (heuristic: 71.3%) |
+
+**The hypothesis was wrong, and that is the useful result.** The observation encoding and
+architecture are fine: the same network that PPO couldn't push past ~25% against the heuristic
+reproduces the heuristic almost exactly, and plays at heuristic level, after a few epochs of
+supervised learning. So the bottleneck is the RL procedure (credit assignment and search over a
+noisy, imperfect-information game at this sample budget), not what the network can represent. That
+reframes the next experiment: start PPO from the cloned policy instead of from scratch.
 
 Known evaluation caveat: the random opponent draws from an unseeded generator, so the vs-random
 columns shift by a few points between reruns (the vs-heuristic columns are exactly reproducible).
 
 ## Testing
 
-83 pytest tests, including:
+87 pytest tests, including:
 - Full rules coverage (cards, dealing, capture/ppeok/ttadak/bombs, scoring, go/stop/nagari) with
   hand-checked example hands
 - A 100-seed randomized full-hand simulation that checks card conservation and termination on every
@@ -182,6 +199,16 @@ from `requirements.txt` plus `torch` from the CPU wheel index — see comments i
 .venv\Scripts\python.exe -m rl.plotting
 ```
 
+**Clone the heuristic by supervised learning** (the diagnostic above; writes `checkpoints_bc/`):
+```
+.venv\Scripts\python.exe -m rl.behavior_cloning --games 20000
+```
+
+**Re-score every run with confidence intervals:**
+```
+.venv\Scripts\python.exe -m rl.final_eval
+```
+
 **Evaluate baselines head-to-head:**
 ```
 .venv\Scripts\python.exe -m rl.evaluate
@@ -208,7 +235,7 @@ rl/        Gym env, action/observation encoding, baselines, self-play PPO traini
 api/       FastAPI session + bot-inference layer
 web/       React + TypeScript frontend
 scripts/   play_cli.py -- terminal play for manual sanity-checking
-tests/     83 pytest tests across all of the above
+tests/     87 pytest tests across all of the above
 checkpoints/  trained model checkpoints (gitignored) + training_log.csv + the curve plot
 ```
 

@@ -13,3 +13,4 @@ web/.vite/
 
 .DS_Store
 Thumbs.db
+!checkpoints_bc/bc_report.json

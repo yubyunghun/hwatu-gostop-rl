@@ -17,11 +17,11 @@ import matplotlib.pyplot as plt
 
 from rl.baselines.heuristic_agent import heuristic_policy
 from rl.baselines.random_agent import random_policy
-from rl.evaluate import run_match, wilson_interval
+from rl.evaluate import HELDOUT_EVAL_SEED, run_match, wilson_interval
 from rl.model_agent import make_model_policy
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-EVAL_BASE_SEED = 1_000_000
+EVAL_BASE_SEED = HELDOUT_EVAL_SEED
 
 # label -> checkpoint directory (the newest ckpt_*.zip in it is the final model)
 EXPERIMENTS = {

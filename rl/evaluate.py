@@ -14,6 +14,10 @@ from rl.action_space import apply_action, legal_action_mask
 
 MAX_STEPS_PER_EPISODE = 500
 
+# Seed base for held-out evaluation deals: far above anything training-time evals used, so no
+# reported final number was ever measured on a deal a run saw in its own logging.
+HELDOUT_EVAL_SEED = 1_000_000
+
 
 def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
     """95% Wilson score interval for a win rate. Preferred over the naive
