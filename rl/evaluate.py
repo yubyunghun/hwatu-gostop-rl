@@ -4,6 +4,7 @@ training compute is spent) and later to evaluate trained checkpoints against the
 baselines and against each other.
 """
 
+import math
 import random
 
 import numpy as np
@@ -12,6 +13,19 @@ from engine.engine import GoStopEngine
 from rl.action_space import apply_action, legal_action_mask
 
 MAX_STEPS_PER_EPISODE = 500
+
+
+def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """95% Wilson score interval for a win rate. Preferred over the naive
+    p +/- z*sqrt(p(1-p)/n) because it stays inside [0, 1] and behaves sensibly at
+    small n and extreme rates -- exactly the regime a 30-game checkpoint eval is in."""
+    if n == 0:
+        return (0.0, 1.0)
+    p = successes / n
+    denom = 1 + z * z / n
+    center = (p + z * z / (2 * n)) / denom
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom
+    return (max(0.0, center - half), min(1.0, center + half))
 
 
 def play_episode(policy_a, policy_b, seed: int, dealer: int = 0):

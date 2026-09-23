@@ -67,113 +67,89 @@ reasoning for the genuinely contested ones (ppeok sequencing especially). Every 
   fresh from a pool that's ~10% random, ~10% heuristic, ~80% recent checkpoints — a floor of
   non-self opponents specifically to guard against the classic self-play failure mode where two
   co-evolving policies converge on a narrow pattern that only beats each other.
-- **Reward**: 0 during play, terminal = signed final score differential (scaled), 0 for nagari.
-  Episode = one hand, matching how the go/stop mechanic is itself scoped per-hand.
+- **Reward**: terminal = signed final settlement differential (scaled), 0 for nagari, plus an
+  optional dense potential-based shaping term (own raw score minus opponent's, telescoping across the
+  episode; `reward_shaping` in `rl/env.py`, on by default). Episode = one hand, matching how the
+  go/stop mechanic is itself scoped per-hand.
 
 ## Results
 
+Short version: the agent learned a real policy that beats random play, but **no variant I trained
+beats the hand-written heuristic baseline**, and none of the changes I tried (league design, reward
+shaping, entropy bonus) moved that outcome by more than a few points. The heuristic is a simple
+greedy rule (take the most valuable capture available, always bomb, stop at a score/deck threshold),
+so this is a genuine gap, not a strong baseline being unbeatable.
+
+![Final evaluation](checkpoints/final_eval.png)
+
+Each model's final checkpoint was re-scored on 300 fresh deals per opponent, and its last 5
+checkpoints were pooled at 200 deals each (1000 games) against the heuristic. Error bars are 95%
+Wilson intervals. Deals are seeded well above anything training-time evaluation used, and the
+harness alternates dealer and seat so neither can bias a rate. Raw numbers: `checkpoints/final_eval.csv`
+(`python -m rl.final_eval`).
+
+| Model | vs. random (final) | vs. heuristic (final) | vs. heuristic (pooled last 5) |
+|---|---|---|---|
+| heuristic (reference) | 71.3% [66.0, 76.2] | 40.0% [34.6, 45.6] (vs. itself) | — |
+| original (sparse terminal reward) | 59.7% [54.0, 65.1] | 23.7% [19.2, 28.8] | 23.5% [21.0, 26.2] |
+| ablation (heuristic opponent only) | 56.3% [50.7, 61.8] | 19.0% [15.0, 23.8] | 23.5% [21.0, 26.2] |
+| + reward shaping | 54.0% [48.3, 59.6] | 23.3% [18.9, 28.4] | 26.3% [23.7, 29.1] |
+| + shaping and entropy bonus 0.01 | 51.3% [45.7, 56.9] | 23.3% [18.9, 28.4] | 26.7% [24.1, 29.5] |
+
+(All rates are wins over all games; about 15-20% of hands end in nagari with no winner. The
+heuristic-vs-itself row landing at 40% / 39% is a symmetry sanity check on the harness.)
+
+### What the experiments show
+
+- **Learning happened, but not far.** Every trained model beats random (roughly 51-60%), yet the
+  heuristic beats random 71% of the time. The agents sit between random and the heuristic.
+- **League vs. single-opponent training: no difference.** The self-play league and an agent trained
+  only against the frozen heuristic score identically against the heuristic (23.5% both, pooled).
+  So the league's opponent mix is not what's holding the agent back.
+- **Reward shaping and entropy bonus: at most a small effect, not established.** The two runs with
+  dense potential-based shaping (`reward_shaping` in `rl/env.py`) pool to about 26.5% against the
+  heuristic versus 23.5% without, a gap of ~3 points. That is suggestive but borderline even on
+  evaluation noise alone, and it comes from one training run per configuration, so it cannot be
+  separated from run-to-run training variance. On the final snapshots alone there is no difference
+  (23.3% vs 23.7%). The entropy bonus made no measurable difference on top of shaping (26.7% vs 26.3%).
+
+### A correction worth stating
+
+The training-time curves log only 30 games per checkpoint, roughly +/-8 points of noise. An earlier
+version of this write-up read those curves as showing that reward shaping "helped in the second half
+of training" (31.7% vs 25.6% late-run average) and that entropy "helped early and hurt late". The
+larger re-evaluation above does not support those readings: the shaping gap shrinks to ~3 points and
+the entropy effect disappears. The headline "40% vs. the heuristic" peak was the best of about 26
+noisy checkpoints, so it was a lucky draw by construction. I kept the curves below for transparency but
+they should be read as noisy monitoring, not as evidence.
+
+<details>
+<summary>Training-time curves (30 games per point; noisy)</summary>
+
 ![Training curve](checkpoints/training_curve.png)
-
-Reported honestly rather than cherry-picked, across a full 650k-timestep run (an initial 150k plus
-a 500k continuation from that checkpoint):
-
-- **vs. random**: real learning, and it holds up. Win rate climbs from ~25% to a 50-65% band within
-  the first ~60k steps and stays there for the rest of training — the agent reliably beats random
-  play, it just doesn't keep improving past that plateau.
-- **vs. heuristic**: never sustainably crosses 50%. It oscillates noisily in roughly a 10-37% band
-  the entire run, including a visible dip to its worst performance (~7-15%) between 350k-450k steps
-  before partially recovering back to 20-33% by the end. There is no clean upward trend against the
-  stronger baseline across 650k steps of training.
-
-**Reading this honestly:** the agent learned a real policy (decisively better than random), but
-plateaued below the heuristic baseline rather than closing the gap with more timesteps alone. The
-likely causes, roughly in order of suspicion:
-1. **Reward sparsity** — a single terminal reward over an ~10-20 step episode is a long credit
-   assignment horizon for vanilla PPO with no shaping.
-2. **League composition** — the self-play pool is only 10% random / 10% heuristic / 80% recent
-   checkpoints; if the checkpoints in that 80% are themselves not much stronger than random, the
-   agent is rarely practicing against something as tough as the heuristic actually is, so there's
-   little pressure to specifically get better than it.
-3. **No hyperparameter tuning** — both runs used the same default-ish PPO settings (net size,
-   entropy coefficient, learning rate) picked before seeing any results, not tuned in response to
-   the plateau.
-
-More timesteps alone (150k -> 650k) did not resolve this, which is itself a useful finding: it
-argues against "just needs to train longer" as the fix.
-
-### Ablation: does the self-play league actually matter here?
-
 ![Ablation comparison](checkpoints/ablation_comparison.png)
-
-Suspicion #2 above — that the league's opponent mix might be the bottleneck — is directly
-testable: train a second agent against *only* a frozen heuristic opponent for the same 650k
-timesteps (`--opponent heuristic`, no checkpoint pool at all) and compare vs-heuristic win rate
-curves head to head.
-
-**Result: they're statistically indistinguishable.** Both the league run and the single-opponent
-run oscillate in the same ~15-30% band against the heuristic for the entire 650k steps, trading
-the lead back and forth with no consistent gap between them. If the league's opponent mix were the
-real bottleneck, training against the heuristic directly — the strongest, most consistent opponent
-available — should have produced a visibly steeper improvement. It didn't.
-
-That's a meaningful negative result: it shifts the likely explanation away from league composition
-and toward **reward sparsity** and **untuned hyperparameters** (suspicions #1 and #3) as the more
-plausible reasons for the plateau, since removing the league entirely and training against the
-"hardest" fixed opponent the whole time still didn't break past it.
-
-### Fix attempt: potential-based reward shaping
-
 ![Reward shaping comparison](checkpoints/shaping_comparison.png)
-
-Suspicion #1 — reward sparsity — is addressed directly in `rl/env.py`: on top of the existing
-terminal reward, every step now also returns a dense shaping term based on the live raw score
-differential (own captured-card value minus opponent's), which telescopes cleanly across an episode
-so it adds signal without changing what's ultimately being optimized. Trained fresh for the same
-650k timesteps, same hyperparameters, same league setup as the original run — the only variable
-changed is the reward function (see `rl/env.py`'s `reward_shaping` flag and its docstring for the
-exact math).
-
-**Result: a real, if modest, improvement — concentrated in the second half of training.** Early on
-(0-350k) the two runs are comparable, sometimes with the original slightly ahead. From ~400k
-onward, the shaped run pulls ahead and stays ahead: its last-6-checkpoint average vs-heuristic win
-rate is **31.7%** versus the original's **25.6%**, and it reaches a new all-time-best single
-checkpoint of **40%** (vs. 36.7% for the original, 40% for the earlier ablation — so shaping ties
-the best result seen so far rather than clearly exceeding it, but does so more consistently late in
-training rather than as an isolated spike). This reads as "helped, and the mechanism behind why
-(more frequent credit assignment) makes sense," not as "solved it" — still well short of
-consistently beating the heuristic, and the improvement is a trend across noisy points, not a clean
-step change.
-
-### Fix attempt: entropy bonus (on top of reward shaping)
-
 ![Entropy comparison](checkpoints/entropy_comparison.png)
 
-Suspicion #3 — untuned hyperparameters — is the last one on the list. `MaskablePPO`/SB3 defaults to
-`ent_coef=0.0`, i.e. no explicit entropy bonus encouraging exploration; a classic self-play failure
-mode is the policy converging early against a limited opponent pool and never trying alternatives
-that might actually be stronger. Trained fresh for the same 650k timesteps on top of the (now
-default-on) reward shaping, changing only `ent_coef` from 0.0 to 0.01 (`rl/train.py --ent-coef`).
+</details>
 
-**Result: a real effect, but not a net improvement — entropy helped early and hurt late.** For the
-first 150k steps, the entropy run is clearly ahead (25.6% vs. the no-entropy baseline's 16.7%,
-first-6-checkpoint average) — more exploration accelerated early learning, as expected. But the
-pattern reverses for the rest of training: by the last 6 checkpoints the no-entropy baseline is
-ahead (31.7% vs. entropy's 26.1%), and its overall mean (23.2%) and peak (40%) both edge out the
-entropy run's (21.5%, 36.7%). This is a textbook PPO entropy tradeoff: exploration speeds up early
-learning but the same pressure to stay stochastic works against the policy sharpening into its best
-exploitation strategy later. Net effect here was roughly a wash-to-slightly-negative over the full
-run, so `ent_coef=0.0` (the default) stays the better choice for this problem at this training
-budget — a decaying entropy schedule (high early, low late) would be the natural next thing to try
-if pursuing this further, rather than a single fixed coefficient.
+### Where the bottleneck probably is
 
-`rl/evaluate.py` is the harness behind every number here — it alternates both the dealer and which
-seat each policy occupies across episodes so neither a dealer-order nor a seat-index artifact can
-bias a reported win rate. `rl/plotting.py`'s `plot_comparison()` produces any before/after
-comparison plot like the ones above from two `training_log.csv` files.
+Four different knobs (opponent pool, reward density, exploration bonus, more timesteps) all land at
+the same ~23-27%, which points away from any one of them and toward something more structural. The
+leading suspect is the observation and architecture: the network sees flattened 48-slot multi-hot
+vectors, so to know that a hand card captures a field card it has to learn "same month" as a relation
+between slot indices, which the heuristic gets for free from the rules. A direct test is behavior
+cloning: train the same network by supervised learning to imitate the heuristic. High agreement means
+the representation is fine and RL is the weak link; low agreement means the observation encoding is
+the bottleneck. That is the next experiment.
+
+Known evaluation caveat: the random opponent draws from an unseeded generator, so the vs-random
+columns shift by a few points between reruns (the vs-heuristic columns are exactly reproducible).
 
 ## Testing
 
-80 pytest tests, including:
+83 pytest tests, including:
 - Full rules coverage (cards, dealing, capture/ppeok/ttadak/bombs, scoring, go/stop/nagari) with
   hand-checked example hands
 - A 100-seed randomized full-hand simulation that checks card conservation and termination on every
@@ -232,7 +208,7 @@ rl/        Gym env, action/observation encoding, baselines, self-play PPO traini
 api/       FastAPI session + bot-inference layer
 web/       React + TypeScript frontend
 scripts/   play_cli.py -- terminal play for manual sanity-checking
-tests/     80 pytest tests across all of the above
+tests/     83 pytest tests across all of the above
 checkpoints/  trained model checkpoints (gitignored) + training_log.csv + the curve plot
 ```
 
