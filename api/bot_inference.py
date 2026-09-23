@@ -10,7 +10,7 @@ from rl.model_agent import make_model_policy
 
 # Points at whichever checkpoint directory holds the current best model -- update
 # this when a new experiment (see README's Results section) becomes the best one.
-DEFAULT_CHECKPOINT_DIR = Path(__file__).resolve().parent.parent / "checkpoints_reward_shaping"
+DEFAULT_CHECKPOINT_DIR = Path(__file__).resolve().parent.parent / "checkpoints_finetune"
 
 
 def latest_checkpoint(checkpoint_dir: Path = DEFAULT_CHECKPOINT_DIR) -> Path | None:
