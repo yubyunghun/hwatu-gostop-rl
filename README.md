@@ -74,44 +74,51 @@ reasoning for the genuinely contested ones (ppeok sequencing especially). Every 
 
 ## Results
 
-Short version: the agent learned a real policy that beats random play, but **no variant I trained
-beats the hand-written heuristic baseline**, and none of the changes I tried (league design, reward
-shaping, entropy bonus) moved that outcome by more than a few points. The heuristic is a simple
-greedy rule (take the most valuable capture available, always bomb, stop at a score/deck threshold),
-so this is a genuine gap, not a strong baseline being unbeatable.
+Short version: **imitation learning matched a hand-written heuristic baseline, PPO from scratch did
+not, and PPO fine-tuning from the imitation start preserved heuristic-level play but did not exceed
+it.** The heuristic is a simple greedy rule (take the most valuable capture available, always bomb,
+stop at a score/deck threshold), so beating it is a real bar, not a strawman.
 
 ![Final evaluation](checkpoints/final_eval.png)
 
-Each model's final checkpoint was re-scored on 300 fresh deals per opponent, and its last 5
+Every model's final checkpoint was scored on 600 held-out deals per opponent, and each run's last 5
 checkpoints were pooled at 200 deals each (1000 games) against the heuristic. Error bars are 95%
 Wilson intervals. Deals are seeded well above anything training-time evaluation used, and the
-harness alternates dealer and seat so neither can bias a rate. Raw numbers: `checkpoints/final_eval.csv`
-(`python -m rl.final_eval`).
+harness alternates dealer and seat so neither can bias a rate. Raw numbers:
+`checkpoints/final_eval.csv` (`python -m rl.final_eval`).
 
 | Model | vs. random (final) | vs. heuristic (final) | vs. heuristic (pooled last 5) |
 |---|---|---|---|
-| heuristic (reference) | 71.3% [66.0, 76.2] | 40.0% [34.6, 45.6] (vs. itself) | — |
-| original (sparse terminal reward) | 59.7% [54.0, 65.1] | 23.7% [19.2, 28.8] | 23.5% [21.0, 26.2] |
-| ablation (heuristic opponent only) | 56.3% [50.7, 61.8] | 19.0% [15.0, 23.8] | 23.5% [21.0, 26.2] |
-| + reward shaping | 54.0% [48.3, 59.6] | 23.3% [18.9, 28.4] | 26.3% [23.7, 29.1] |
-| + shaping and entropy bonus 0.01 | 51.3% [45.7, 56.9] | 23.3% [18.9, 28.4] | 26.7% [24.1, 29.5] |
+| heuristic (reference) | 73.3% [69.7, 76.7] | 43.7% [39.8, 47.7] (vs. itself) | n/a |
+| PPO from scratch, sparse reward | 60.8% [56.9, 64.7] | 25.5% [22.2, 29.1] | 23.5% [21.0, 26.2] |
+| ...against the heuristic only (no league) | 53.0% [49.0, 57.0] | 24.7% [21.4, 28.3] | 23.5% [21.0, 26.2] |
+| ...+ reward shaping | 53.8% [49.8, 57.8] | 26.0% [22.7, 29.7] | 26.3% [23.7, 29.1] |
+| ...+ shaping and entropy bonus | 55.0% [51.0, 58.9] | 24.0% [20.8, 27.6] | 26.7% [24.1, 29.5] |
+| **cloned heuristic (behavior cloning)** | 73.7% [70.0, 77.0] | **42.8%** [38.9, 46.8] | 42.2% [39.2, 45.3] |
+| **cloning + PPO fine-tune** | 75.7% [72.1, 78.9] | **42.7%** [38.8, 46.7] | 44.4% [41.3, 47.5] |
 
-(All rates are wins over all games; about 15-20% of hands end in nagari with no winner. The
-heuristic-vs-itself row landing at 40% / 39% is a symmetry sanity check on the harness.)
+(Rates are wins over all games; 15-20% of hands end in nagari with no winner, which is why the
+heuristic playing itself scores 43.7%, not 50%: among decisive games it splits 262 to 223.)
 
 ### What the experiments show
 
-- **Learning happened, but not far.** Every trained model beats random (roughly 51-60%), yet the
-  heuristic beats random 71% of the time. The agents sit between random and the heuristic.
-- **League vs. single-opponent training: no difference.** The self-play league and an agent trained
-  only against the frozen heuristic score identically against the heuristic (23.5% both, pooled).
-  So the league's opponent mix is not what's holding the agent back.
-- **Reward shaping and entropy bonus: at most a small effect, not established.** The two runs with
-  dense potential-based shaping (`reward_shaping` in `rl/env.py`) pool to about 26.5% against the
-  heuristic versus 23.5% without, a gap of ~3 points. That is suggestive but borderline even on
-  evaluation noise alone, and it comes from one training run per configuration, so it cannot be
-  separated from run-to-run training variance. On the final snapshots alone there is no difference
-  (23.3% vs 23.7%). The entropy bonus made no measurable difference on top of shaping (26.7% vs 26.3%).
+- **PPO from scratch plateaus far below the heuristic, whatever I changed.** Four variants (sparse
+  reward, heuristic-only opponent, reward shaping, shaping plus entropy) all land at 24-27% against
+  the heuristic, about 18 points below it, with non-overlapping intervals. They beat random
+  (roughly 53-61%) but sit between random and the heuristic.
+- **The plateau is not the league.** Training against only the frozen heuristic scored the same
+  as the self-play league (23.5% both, pooled), so the opponent mix is not what holds the agent back.
+- **Reward shaping and the entropy bonus: at most a small effect, not established.** The two runs
+  with dense potential-based shaping (`reward_shaping` in `rl/env.py`) pool to about 26.5% against
+  the heuristic versus 23.5% without, a ~3 point gap that is borderline on evaluation noise alone and
+  comes from one training run per configuration, so it can't be separated from run-to-run variance.
+  On the final snapshots there is no difference (26.0% vs 25.5%), and the entropy bonus changed nothing.
+- **Imitation closes the gap immediately.** The same network, trained by supervised learning to copy
+  the heuristic, reaches heuristic-level play (42.8% vs. the heuristic's 43.7% against itself).
+- **PPO fine-tuning from that start did not beat the heuristic.** It held the cloned model's level
+  (42.7% final) and the pooled late-checkpoint rate is 2 points higher (44.4% vs 42.2%), which is inside
+  the noise. Its higher vs-random win rate is fewer nagari draws, not better play: among decisive
+  games it wins 83.9% against random, the same as the clone (84.0%) and the heuristic (83.5%).
 
 ### A correction worth stating
 
@@ -150,8 +157,8 @@ Data: 20,000 games (~400k states), every state labeled with the heuristic's acti
 | Agreement with the heuristic on held-out states | **95.9%** (random guessing: 29.9%) |
 | ...by decision type | play-card 95.7%, bomb 100%, go/stop 98.5% |
 | Epochs to reach ~96% | about 5 |
-| Cloned model vs. heuristic (300 games) | **39.3%** [34.0, 45.0], 118 wins to 122 |
-| Heuristic vs. itself (reference) | 40.0% [34.6, 45.6] |
+| Cloned model vs. heuristic (first 300 deals; 600 in the table above: 42.8%) | **39.3%** [34.0, 45.0], 118 wins to 122 |
+| Heuristic vs. itself, same 300 deals (43.7% over 600) | 40.0% [34.6, 45.6] |
 | Cloned model vs. random (300 games) | 73.3% [68.1, 78.0] (heuristic: 71.3%) |
 
 **The hypothesis was wrong, and that is the useful result.** The observation encoding and
@@ -161,12 +168,29 @@ supervised learning. So the bottleneck is the RL procedure (credit assignment an
 noisy, imperfect-information game at this sample budget), not what the network can represent. That
 reframes the next experiment: start PPO from the cloned policy instead of from scratch.
 
+### Warm-starting PPO from the clone
+
+If the network can represent a heuristic-level policy, the natural move is to start PPO there
+instead of asking it to rediscover one (`rl/finetune.py`). Two things keep PPO from wrecking a good
+starting policy. First, the cloned network's value head is untrained (cloning only fits the policy),
+so PPO's first updates would compute advantages from noise; I fit the value head to Monte-Carlo
+returns with the policy frozen (error 0.47 to 0.14, about 49% of return variance explained).
+Second, the opponent league is seeded with the cloned model so the learner starts against
+heuristic-level opponents. Learning rate is 3e-5, ten times lower than from scratch.
+
+400k steps later the model is still at heuristic level and no better. That's a real result:
+warm-starting kept PPO at 43% where from-scratch training stalls at 25%, but it did not find play
+that beats a heuristic teacher. One untested suspect is my own league design: it keeps only the 5
+most recent checkpoints, so the cloned seed leaves the pool after 125k steps and the learner mostly
+plays earlier versions of itself. Fine-tuning against the heuristic directly, with a higher learning
+rate, is the obvious next experiment.
+
 Known evaluation caveat: the random opponent draws from an unseeded generator, so the vs-random
 columns shift by a few points between reruns (the vs-heuristic columns are exactly reproducible).
 
 ## Testing
 
-87 pytest tests, including:
+88 pytest tests, including:
 - Full rules coverage (cards, dealing, capture/ppeok/ttadak/bombs, scoring, go/stop/nagari) with
   hand-checked example hands
 - A 100-seed randomized full-hand simulation that checks card conservation and termination on every
@@ -235,7 +259,7 @@ rl/        Gym env, action/observation encoding, baselines, self-play PPO traini
 api/       FastAPI session + bot-inference layer
 web/       React + TypeScript frontend
 scripts/   play_cli.py -- terminal play for manual sanity-checking
-tests/     87 pytest tests across all of the above
+tests/     88 pytest tests across all of the above
 checkpoints/  trained model checkpoints (gitignored) + training_log.csv + the curve plot
 ```
 

@@ -23,20 +23,30 @@ from rl.model_agent import make_model_policy
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 EVAL_BASE_SEED = HELDOUT_EVAL_SEED
 
-# label -> checkpoint directory (the newest ckpt_*.zip in it is the final model)
+# label -> a checkpoint directory (its newest ckpt_*.zip is the final model, and its last few
+# are pooled) or a single .zip file (one model, pooled with itself)
 EXPERIMENTS = {
     "original (sparse reward)": "checkpoints",
     "ablation (heuristic only)": "checkpoints_ablation_heuristic",
     "reward shaping": "checkpoints_reward_shaping",
     "shaping + entropy 0.01": "checkpoints_entropy_tuning",
+    "cloned heuristic (BC)": "checkpoints_bc/bc_model.zip",
+    "BC + PPO fine-tune": "checkpoints_finetune",
 }
 
 
-def latest_checkpoint(directory: Path) -> Path:
-    files = sorted(directory.glob("ckpt_*.zip"))
+def checkpoints_for(path: Path, k: int = 1) -> list[Path]:
+    """The last k checkpoints of a run directory, or the single file itself."""
+    if path.is_file():
+        return [path]
+    files = sorted(path.glob("ckpt_*.zip"))
     if not files:
-        raise FileNotFoundError(f"no checkpoints in {directory}")
-    return files[-1]
+        raise FileNotFoundError(f"no checkpoints in {path}")
+    return files[-k:]
+
+
+def latest_checkpoint(path: Path) -> Path:
+    return checkpoints_for(path, 1)[-1]
 
 
 def score(policy, opponent, episodes: int, seed: int) -> dict:
@@ -85,9 +95,11 @@ def main(episodes: int, pooled_k: int, pooled_episodes: int) -> None:
 
     pooled_label = f"heuristic (pooled last {pooled_k} ckpts)"
     for label, directory in EXPERIMENTS.items():
-        paths = sorted((PROJECT_ROOT / directory).glob("ckpt_*.zip"))[-pooled_k:]
+        paths = checkpoints_for(PROJECT_ROOT / directory, pooled_k)
+        # A single-file model has nothing to pool over; give it the same total games instead.
+        each = pooled_episodes if len(paths) > 1 else pooled_episodes * pooled_k
         rows.append({"model": label, "opponent": pooled_label,
-                     **pooled_score(paths, heuristic_policy, pooled_episodes, EVAL_BASE_SEED)})
+                     **pooled_score(paths, heuristic_policy, each, EVAL_BASE_SEED)})
         print(rows[-1], flush=True)
 
     out_csv = PROJECT_ROOT / "checkpoints" / "final_eval.csv"
@@ -103,7 +115,7 @@ def main(episodes: int, pooled_k: int, pooled_episodes: int) -> None:
 
 def plot(rows: list[dict], out_path: Path, episodes: int, pooled_label: str) -> None:
     opponents = ("random", "heuristic", pooled_label)
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4.8), sharey=True)
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5.2), sharey=True)
     for ax, opp in zip(axes, opponents):
         subset = [r for r in rows if r["opponent"] == opp]
         labels = [r["model"] for r in subset]
