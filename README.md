@@ -80,6 +80,8 @@ heuristic while winning about as many hands.** The gain comes from the go/stop d
 card play, and it is specific to how this game's payoffs work (details below). The heuristic is a simple
 greedy rule (take the most valuable capture available, always bomb, stop at a score/deck threshold),
 so matching it is a real bar, not a strawman.
+Search on top of the same heuristic is the one method here that beats it at card play (+2.4 points per
+game and about 7 more wins per 100 hands with card-play search alone; see the last subsection).
 
 ![Final evaluation](checkpoints/final_eval.png)
 
@@ -230,12 +232,48 @@ only the 5 most recent checkpoints, so the cloned seed leaves the pool after 125
 mostly plays earlier versions of itself. Fine-tuning against the heuristic directly, or keeping the
 clone in the league permanently, is the obvious next experiment.
 
+### Search: the first thing that beats the heuristic at card play
+
+Neither imitation nor PPO found better card play, so I tried the classic alternative that doesn't need a
+better teacher, just a simulator (`rl/search.py`). At each decision it samples plausible hidden worlds
+(the opponent's hand and the deck order, drawn uniformly from the cards not yet seen), plays each legal
+action out to the end of the hand with the heuristic on both sides, and compares actions across the same
+sampled worlds. It only overrides the heuristic when another action wins by at least one standard error
+of the paired difference, so noise alone can't drag it below the base policy. It cannot see hidden
+cards: a test builds two games identical except for the opponent's hidden hand and checks that they
+produce identical sampled worlds.
+
+Each configuration was played against the heuristic for 1200 deals on a fresh seed (60 sampled worlds
+per decision), paired with the heuristic playing the same deals and seats:
+
+| Search allowed to override | Paired payoff vs. heuristic | Wins / losses / draws | Heuristic wins |
+|---|---|---|---|
+| card play only | **+2.40** [+1.62, +3.18] | 577 / 418 / 205 | 492 |
+| card play, bombs, and go/stop | **+5.32** [+4.25, +6.38] | 612 / 389 / 199 | 492 |
+
+Unlike the fine-tuned network, the card-play-only row also wins more hands (48.1% [45.3, 50.9] against
+41.0% [38.3, 43.8]), so this is a real improvement in how the cards are played and not just a payoff
+effect. Adding go/stop to the search roughly doubles the payoff gain and lifts the win rate to 51.0%
+[48.2, 53.8]. A 300-deal pilot on a different seed gave +1.67 and +5.23, consistent with these.
+Raw numbers: `checkpoints/search_confirm_*.json` (`python -m rl.search_eval`).
+
+Caveats that matter:
+- **The rollouts assume the opponent plays like the heuristic**, and the opponent here is the heuristic.
+  The gain is measured against exactly the opponent the search models, and would likely be smaller
+  against a different style of play. I haven't tested that.
+- **It is expensive.** Roughly 60 sampled worlds times every legal action, each played to the end of the
+  hand, at every decision. It runs offline in parallel here; it is not what the web app serves.
+- **Worlds are sampled uniformly.** The search doesn't infer anything from which cards the opponent
+  has played or passed on.
+- I used one setting (`min_z` = 1.0, 60 worlds) and did not sweep either, so these numbers are not the
+  best it could do, and I don't know which direction more tuning would move them.
+
 Known evaluation caveat: the random opponent draws from an unseeded generator, so the vs-random
 columns shift by a few points between reruns (the vs-heuristic columns are exactly reproducible).
 
 ## Testing
 
-90 pytest tests, including:
+98 pytest tests, including:
 - Full rules coverage (cards, dealing, capture/ppeok/ttadak/bombs, scoring, go/stop/nagari) with
   hand-checked example hands
 - A 100-seed randomized full-hand simulation that checks card conservation and termination on every
@@ -243,6 +281,8 @@ columns shift by a few points between reruns (the vs-heuristic columns are exact
   turn loop didn't originally handle) before any ML code ever touched the engine
 - A scripted cross-check that the Gym env wrapper and the raw engine reach byte-identical results
   for the same input, so there's no silent divergence between what's tested and what's trained on
+- Search: sampled worlds conserve all 48 cards, keep everything visible, and provably cannot see hidden
+  cards; a search that never deviates reduces exactly to the heuristic
 - A fast end-to-end training smoke test (MaskablePPO + self-play env + checkpoint pool wired
   together) that runs in a few seconds as a permanent regression check
 - API tests via FastAPI's `TestClient`, including that a session never leaks the opponent's hidden
@@ -284,6 +324,11 @@ from `requirements.txt` plus `torch` from the CPU wheel index — see comments i
 .venv\Scripts\python.exe -m rl.payoff_eval --games 3000
 ```
 
+**Evaluate determinized search against the heuristic** (parallel; about 10 minutes per 1200 games):
+```
+.venv\Scripts\python.exe -m rl.search_eval --games 1200 --determinizations 60 --nodes play --out search_play.json
+```
+
 **Evaluate baselines head-to-head:**
 ```
 .venv\Scripts\python.exe -m rl.evaluate
@@ -310,7 +355,7 @@ rl/        Gym env, action/observation encoding, baselines, self-play PPO traini
 api/       FastAPI session + bot-inference layer
 web/       React + TypeScript frontend
 scripts/   play_cli.py -- terminal play for manual sanity-checking
-tests/     90 pytest tests across all of the above
+tests/     98 pytest tests across all of the above
 checkpoints/  trained model checkpoints (gitignored) + training_log.csv + the curve plot
 ```
 

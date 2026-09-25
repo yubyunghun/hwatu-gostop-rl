@@ -1,0 +1,42 @@
+{
+  "games": 300,
+  "determinizations": 60,
+  "min_z": 1.0,
+  "seed": 4000000,
+  "nodes": "all",
+  "search_payoff": {
+    "mean": 6.41,
+    "ci_low": 3.3284396470933,
+    "ci_high": 9.4915603529067
+  },
+  "heuristic_payoff": {
+    "mean": 1.1766666666666667,
+    "ci_low": -0.5984257206432704,
+    "ci_high": 2.9517590539766037
+  },
+  "paired_payoff_search_minus_heuristic": {
+    "mean": 5.233333333333333,
+    "ci_low": 2.2257563994867002,
+    "ci_high": 8.240910267179967
+  },
+  "search_outcomes": {
+    "wins": 169,
+    "losses": 89,
+    "draws": 42,
+    "win_rate": 0.5633333333333334,
+    "ci_low": 0.5067581755681922,
+    "ci_high": 0.6183069899654279
+  },
+  "heuristic_outcomes": {
+    "wins": 133,
+    "losses": 107,
+    "draws": 60,
+    "win_rate": 0.44333333333333336,
+    "ci_low": 0.388185929862749,
+    "ci_high": 0.4999136588703277
+  },
+  "decisions": 3119,
+  "searched": 2858,
+  "deviations": 691,
+  "deviation_rate_of_searched": 0.241777466759972
+}
