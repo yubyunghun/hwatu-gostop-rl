@@ -74,64 +74,113 @@ reasoning for the genuinely contested ones (ppeok sequencing especially). Every 
 
 ## Results
 
-Short version: **imitation learning matched a hand-written heuristic baseline, PPO from scratch did
-not, and PPO fine-tuning from the imitation start preserved heuristic-level play but did not exceed
-it.** The heuristic is a simple greedy rule (take the most valuable capture available, always bomb,
-stop at a score/deck threshold), so beating it is a real bar, not a strawman.
+Short version: **imitation learning reproduces a hand-written heuristic exactly, PPO from scratch never
+gets close, and PPO fine-tuning from the imitation start earns about 3.4 more points per game than the
+heuristic while winning about as many hands.** The gain comes from the go/stop decision, not from better
+card play, and it is specific to how this game's payoffs work (details below). The heuristic is a simple
+greedy rule (take the most valuable capture available, always bomb, stop at a score/deck threshold),
+so matching it is a real bar, not a strawman.
 
 ![Final evaluation](checkpoints/final_eval.png)
 
-Every model's final checkpoint was scored on 600 held-out deals per opponent, and each run's last 5
-checkpoints were pooled at 200 deals each (1000 games) against the heuristic. Error bars are 95%
-Wilson intervals. Deals are seeded well above anything training-time evaluation used, and the
-harness alternates dealer and seat so neither can bias a rate. Raw numbers:
+**Protocol.** Each model's final checkpoint was scored on 600 held-out deals per opponent, and each
+run's last 5 checkpoints were pooled at 200 deals each (1000 games) against the heuristic. Error bars
+are 95% Wilson intervals. Deal seeds sit far above anything training-time evaluation used, and seat
+and dealer are varied independently so the policy under test moves first in half the games and second
+in the other half (see the second correction below for why that sentence matters). Raw numbers:
 `checkpoints/final_eval.csv` (`python -m rl.final_eval`).
+
+### Win rate
 
 | Model | vs. random (final) | vs. heuristic (final) | vs. heuristic (pooled last 5) |
 |---|---|---|---|
-| heuristic (reference) | 73.3% [69.7, 76.7] | 43.7% [39.8, 47.7] (vs. itself) | n/a |
-| PPO from scratch, sparse reward | 60.8% [56.9, 64.7] | 25.5% [22.2, 29.1] | 23.5% [21.0, 26.2] |
-| ...against the heuristic only (no league) | 53.0% [49.0, 57.0] | 24.7% [21.4, 28.3] | 23.5% [21.0, 26.2] |
-| ...+ reward shaping | 53.8% [49.8, 57.8] | 26.0% [22.7, 29.7] | 26.3% [23.7, 29.1] |
-| ...+ shaping and entropy bonus | 55.0% [51.0, 58.9] | 24.0% [20.8, 27.6] | 26.7% [24.1, 29.5] |
-| **cloned heuristic (behavior cloning)** | 73.7% [70.0, 77.0] | **42.8%** [38.9, 46.8] | 42.2% [39.2, 45.3] |
-| **cloning + PPO fine-tune** | 75.7% [72.1, 78.9] | **42.7%** [38.8, 46.7] | 44.4% [41.3, 47.5] |
+| heuristic (reference) | 71.0% [67.2, 74.5] | 37.3% [33.6, 41.3] (vs. itself) | n/a |
+| PPO from scratch, sparse reward | 54.7% [50.7, 58.6] | 21.5% [18.4, 25.0] | 22.2% [19.7, 24.9] |
+| ...against the heuristic only (no league) | 50.0% [46.0, 54.0] | 21.7% [18.6, 25.1] | 23.6% [21.1, 26.3] |
+| ...+ reward shaping | 56.2% [52.2, 60.1] | 24.5% [21.2, 28.1] | 23.6% [21.1, 26.3] |
+| ...+ shaping and entropy bonus | 55.8% [51.8, 59.8] | 21.8% [18.7, 25.3] | 25.3% [22.7, 28.1] |
+| **cloned heuristic (behavior cloning)** | 71.7% [67.9, 75.1] | **37.0%** [33.2, 40.9] | 39.1% [36.1, 42.2] |
+| **cloning + PPO fine-tune** | 74.3% [70.7, 77.7] | **38.5%** [34.7, 42.5] | 38.0% [35.0, 41.0] |
 
-(Rates are wins over all games; 15-20% of hands end in nagari with no winner, which is why the
-heuristic playing itself scores 43.7%, not 50%: among decisive games it splits 262 to 223.)
+(Rates are wins over all games. About 19% of hands end in nagari with no winner, which is why the
+heuristic playing itself scores 37%, not 50%.)
 
-### What the experiments show
+On win rate the picture is simple: the four from-scratch variants sit 12-16 points below the heuristic
+with non-overlapping intervals, and the cloned and fine-tuned models are statistically
+indistinguishable from it. League vs. heuristic-only training, reward shaping, and the entropy bonus
+made no measurable difference (all 22-25% pooled, well inside each other's error bars).
 
-- **PPO from scratch plateaus far below the heuristic, whatever I changed.** Four variants (sparse
-  reward, heuristic-only opponent, reward shaping, shaping plus entropy) all land at 24-27% against
-  the heuristic, about 18 points below it, with non-overlapping intervals. They beat random
-  (roughly 53-61%) but sit between random and the heuristic.
-- **The plateau is not the league.** Training against only the frozen heuristic scored the same
-  as the self-play league (23.5% both, pooled), so the opponent mix is not what holds the agent back.
-- **Reward shaping and the entropy bonus: at most a small effect, not established.** The two runs
-  with dense potential-based shaping (`reward_shaping` in `rl/env.py`) pool to about 26.5% against
-  the heuristic versus 23.5% without, a ~3 point gap that is borderline on evaluation noise alone and
-  comes from one training run per configuration, so it can't be separated from run-to-run variance.
-  On the final snapshots there is no difference (26.0% vs 25.5%), and the entropy bonus changed nothing.
-- **Imitation closes the gap immediately.** The same network, trained by supervised learning to copy
-  the heuristic, reaches heuristic-level play (42.8% vs. the heuristic's 43.7% against itself).
-- **PPO fine-tuning from that start did not beat the heuristic.** It held the cloned model's level
-  (42.7% final) and the pooled late-checkpoint rate is 2 points higher (44.4% vs 42.2%), which is inside
-  the noise. Its higher vs-random win rate is fewer nagari draws, not better play: among decisive
-  games it wins 83.9% against random, the same as the clone (84.0%) and the heuristic (83.5%).
+### Payoff: what PPO actually optimizes
 
-### A correction worth stating
+Win rate counts who won. PPO is trained on the final settlement, so a policy can earn more per game
+without winning more games. Mean payoff (points per game against the heuristic, nagari = 0) is noisy
+because deal luck dominates it, so the comparison that matters is the *paired* difference: the same
+deals, the same seats, the model minus the heuristic playing that position.
 
-The training-time curves log only 30 games per checkpoint, roughly +/-8 points of noise. An earlier
-version of this write-up read those curves as showing that reward shaping "helped in the second half
-of training" (31.7% vs 25.6% late-run average) and that entropy "helped early and hurt late". The
-larger re-evaluation above does not support those readings: the shaping gap shrinks to ~3 points and
-the entropy effect disappears. The headline "40% vs. the heuristic" peak was the best of about 26
-noisy checkpoints, so it was a lucky draw by construction. I kept the curves below for transparency but
-they should be read as noisy monitoring, not as evidence.
+| Model (3000 fresh deals) | Mean payoff | Paired vs. heuristic | Wins / losses | Average win / loss |
+|---|---|---|---|---|
+| heuristic vs. itself (sanity: ~0) | -0.09 [-0.71, +0.52] | n/a | 1231 / 1227 | +15.2 / -15.4 |
+| cloned heuristic | -0.08 [-0.70, +0.54] | +0.01 [-0.22, +0.25] | 1235 / 1225 | +15.3 / -15.7 |
+| **cloning + PPO fine-tune** | **+3.30** [+2.05, +4.55] | **+3.39** [+2.33, +4.45] | 1182 / 1265 | **+25.6** / -16.1 |
+
+A first pass at 1000 deals suggested this, and it is replicated here on a fresh seed with three
+times the games (+3.71 [+2.06, +5.36] on the first set). PPO from scratch is about 5.5 points per
+game *worse* than the heuristic (paired -5.2 to -5.4). Raw numbers: `checkpoints/payoff_eval*.json`.
+
+**Where the gain comes from.** The fine-tuned model wins about the same number of hands as the clone
+(1182 vs. 1235 of 3000, not a significant difference) but its average win is worth 25.6 points instead
+of 15.3, with losses about the same size. Decision-level analysis (`python -m rl.analyze_behavior`, 300
+games against the heuristic) says why:
+
+| Decision | Heuristic | Cloned | Fine-tuned | PPO from scratch |
+|---|---|---|---|---|
+| Takes an available capture | 100% | 100% | 99.9% | **65.6%** |
+| Picks the most valuable capture | 99.5% | 98.7% | 98.0% | 65.1% |
+| Declares a bomb when able | 100% | 100% | 100% | **66.7%** |
+| Discards its lowest-value card when it can't capture | 100% | 98.8% | 74.5% | 60.0% |
+| Keeps going ("Go") when it could stop | 82.5% | 82.9% | **99.4%** | 57.5% |
+
+The fine-tuned model is not a better card player: it matches the heuristic on captures and bombs and
+is looser about what it discards. What it learned is to press "Go" almost every time it qualifies,
+which collects the per-go bonus and the multiplier on the hands it wins. The heuristic stops
+conservatively (at a score, a go count, or a nearly empty deck), so under this game's payoff rules
+that is a real improvement the reward could find and a hand-written threshold missed. It is also a
+narrow one, and worth stating plainly:
+
+- It depends on this project's settlement rules (the go bonus, the multiplier that doubles per go
+  from the third, gobak) and on the heuristic's cautious stop rule. It is exploiting the payoff
+  structure, not demonstrating general Go-Stop skill, and it would not show up if the objective were
+  win probability, where it is level with the heuristic.
+- It is higher variance (a 25.6-point average win), and it does slightly worse on the hands where it
+  does not win.
+- The from-scratch models fail at something more basic: they skip an available capture about a third
+  of the time and pass on free bombs, which explains their win rate better than any of the knobs I
+  tuned. They never learned "capture when you can" in 650k steps.
+
+### Corrections
+
+Two things I got wrong and fixed, kept here because they change how much to trust the numbers.
+
+1. **Training-time curves are too noisy to read.** They log 30 games per checkpoint, roughly +/-8
+   points. An earlier version of this write-up read them as showing that reward shaping "helped in
+   the second half of training" and that entropy "helped early and hurt late", and quoted a 40% peak
+   against the heuristic. The larger re-evaluation does not support any of that; the peak was the best
+   of about 26 noisy checkpoints, so a lucky draw by construction.
+2. **The evaluation harness had a position bias.** It alternated the dealer and the policy's seat
+   *together*, and because the first mover is `(dealer + 1) % 2` the two effects cancelled: the
+   policy under test moved second in every evaluation game, and this README claimed the opposite. I
+   caught it because the heuristic playing itself scored a payoff of +1.71 [+1.12, +2.31] where symmetry
+   requires 0. The schedule is now `rl.evaluate.episode_setup`, with tests pinning that the policy
+   moves first in exactly half of games, and every table above was regenerated. Comparisons between
+   models were unaffected (they shared the bias) but absolute rates moved several points, for example
+   the heuristic against itself went from 43.7% to 37.3%. The payoff result was found after the win-rate
+   comparison came up flat, so it is exploratory; that is why it was re-tested on a fresh seed.
+
+The training-time logs in `checkpoints*/training_log.csv` still carry the old bias (they were written
+before the fix), which does not matter for how they are used here: as noisy monitoring only.
 
 <details>
-<summary>Training-time curves (30 games per point; noisy)</summary>
+<summary>Training-time curves (30 games per point; noisy, pre-fix harness)</summary>
 
 ![Training curve](checkpoints/training_curve.png)
 ![Ablation comparison](checkpoints/ablation_comparison.png)
@@ -142,12 +191,12 @@ they should be read as noisy monitoring, not as evidence.
 
 ### Diagnosing the plateau: can the network represent the heuristic at all?
 
-Four different knobs all landing at ~23-27% pointed at something structural, and my leading suspect
-was the observation: the network sees flattened 48-slot multi-hot vectors, so "this hand card shares
-a month with that field card" has to be learned as a relation between slot indices, while the
-heuristic reads it straight off the rules. A direct test is behavior cloning (`rl/behavior_cloning.py`):
-train the *same* network by supervised learning to imitate the heuristic. If it can't, the
-representation is the bottleneck; if it can, RL is the weak link.
+Four different knobs all landing at the same level pointed at something structural, and my leading
+suspect was the observation: the network sees flattened 48-slot multi-hot vectors, so "this hand card
+shares a month with that field card" has to be learned as a relation between slot indices, while the
+heuristic reads it straight off the rules. A direct test is behavior cloning
+(`rl/behavior_cloning.py`): train the *same* network by supervised learning to imitate the heuristic.
+If it can't, the representation is the bottleneck; if it can, RL is the weak link.
 
 Data: 20,000 games (~400k states), every state labeled with the heuristic's action, with 20% of the
 *executed* moves randomized so the states aren't only the ones the heuristic itself reaches.
@@ -157,16 +206,13 @@ Data: 20,000 games (~400k states), every state labeled with the heuristic's acti
 | Agreement with the heuristic on held-out states | **95.9%** (random guessing: 29.9%) |
 | ...by decision type | play-card 95.7%, bomb 100%, go/stop 98.5% |
 | Epochs to reach ~96% | about 5 |
-| Cloned model vs. heuristic (first 300 deals; 600 in the table above: 42.8%) | **39.3%** [34.0, 45.0], 118 wins to 122 |
-| Heuristic vs. itself, same 300 deals (43.7% over 600) | 40.0% [34.6, 45.6] |
-| Cloned model vs. random (300 games) | 73.3% [68.1, 78.0] (heuristic: 71.3%) |
+| Play strength | see the tables above: the clone is level with the heuristic on win rate and payoff |
 
 **The hypothesis was wrong, and that is the useful result.** The observation encoding and
 architecture are fine: the same network that PPO couldn't push past ~25% against the heuristic
 reproduces the heuristic almost exactly, and plays at heuristic level, after a few epochs of
-supervised learning. So the bottleneck is the RL procedure (credit assignment and search over a
-noisy, imperfect-information game at this sample budget), not what the network can represent. That
-reframes the next experiment: start PPO from the cloned policy instead of from scratch.
+supervised learning. So the bottleneck is the RL procedure (credit assignment and search over a noisy,
+imperfect-information game at this sample budget), not what the network can represent.
 
 ### Warm-starting PPO from the clone
 
@@ -178,19 +224,18 @@ returns with the policy frozen (error 0.47 to 0.14, about 49% of return variance
 Second, the opponent league is seeded with the cloned model so the learner starts against
 heuristic-level opponents. Learning rate is 3e-5, ten times lower than from scratch.
 
-400k steps later the model is still at heuristic level and no better. That's a real result:
-warm-starting kept PPO at 43% where from-scratch training stalls at 25%, but it did not find play
-that beats a heuristic teacher. One untested suspect is my own league design: it keeps only the 5
-most recent checkpoints, so the cloned seed leaves the pool after 125k steps and the learner mostly
-plays earlier versions of itself. Fine-tuning against the heuristic directly, with a higher learning
-rate, is the obvious next experiment.
+After 400k steps the model holds heuristic-level win rate and gained the payoff edge described above,
+where from-scratch training reaches neither. One untested suspect is my own league design: it keeps
+only the 5 most recent checkpoints, so the cloned seed leaves the pool after 125k steps and the learner
+mostly plays earlier versions of itself. Fine-tuning against the heuristic directly, or keeping the
+clone in the league permanently, is the obvious next experiment.
 
 Known evaluation caveat: the random opponent draws from an unseeded generator, so the vs-random
 columns shift by a few points between reruns (the vs-heuristic columns are exactly reproducible).
 
 ## Testing
 
-88 pytest tests, including:
+90 pytest tests, including:
 - Full rules coverage (cards, dealing, capture/ppeok/ttadak/bombs, scoring, go/stop/nagari) with
   hand-checked example hands
 - A 100-seed randomized full-hand simulation that checks card conservation and termination on every
@@ -233,6 +278,12 @@ from `requirements.txt` plus `torch` from the CPU wheel index — see comments i
 .venv\Scripts\python.exe -m rl.final_eval
 ```
 
+**Inspect what a model actually does, and its payoff against the heuristic:**
+```
+.venv\Scripts\python.exe -m rl.analyze_behavior
+.venv\Scripts\python.exe -m rl.payoff_eval --games 3000
+```
+
 **Evaluate baselines head-to-head:**
 ```
 .venv\Scripts\python.exe -m rl.evaluate
@@ -259,7 +310,7 @@ rl/        Gym env, action/observation encoding, baselines, self-play PPO traini
 api/       FastAPI session + bot-inference layer
 web/       React + TypeScript frontend
 scripts/   play_cli.py -- terminal play for manual sanity-checking
-tests/     88 pytest tests across all of the above
+tests/     90 pytest tests across all of the above
 checkpoints/  trained model checkpoints (gitignored) + training_log.csv + the curve plot
 ```
 

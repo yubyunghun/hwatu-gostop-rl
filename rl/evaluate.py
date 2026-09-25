@@ -32,6 +32,16 @@ def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, flo
     return (max(0.0, center - half), min(1.0, center + half))
 
 
+def episode_setup(i: int) -> tuple[bool, int]:
+    """(policy_is_seat_1, dealer) for evaluation episode i.
+
+    Seat and dealer must vary *independently*. The first mover is (dealer + 1) % 2, so if seat and
+    dealer both flip every episode (as an earlier version did) they cancel and the policy under
+    test moves second in every single game. Cycling through all four combinations puts it first in
+    exactly half the games and second in the other half."""
+    return i % 2 == 1, (i // 2) % 2
+
+
 def play_episode(policy_a, policy_b, seed: int, dealer: int = 0):
     """policy_a plays seat 0, policy_b plays seat 1. Returns the hand's HandResult."""
     engine = GoStopEngine(num_players=2, dealer=dealer, rng=random.Random(seed))
@@ -49,14 +59,14 @@ def play_episode(policy_a, policy_b, seed: int, dealer: int = 0):
 
 
 def run_match(policy_a, policy_b, num_episodes: int, base_seed: int = 0) -> dict:
-    """Runs num_episodes, alternating both the dealer and which seat each policy
-    occupies, so neither a dealer-order nor a seat-index artifact can bias the
-    result. Returns win/nagari counts from policy_a's perspective."""
+    """Runs num_episodes, cycling seat and dealer independently (see episode_setup) so the policy
+    under test moves first in half the games and second in the other half. Returns win/nagari
+    counts from policy_a's perspective."""
     wins_a = wins_b = nagari = 0
     for i in range(num_episodes):
-        swapped = i % 2 == 1
+        swapped, dealer = episode_setup(i)
         seat_a_policy, seat_b_policy = (policy_b, policy_a) if swapped else (policy_a, policy_b)
-        result = play_episode(seat_a_policy, seat_b_policy, seed=base_seed + i, dealer=i % 2)
+        result = play_episode(seat_a_policy, seat_b_policy, seed=base_seed + i, dealer=dealer)
         if result.nagari:
             nagari += 1
             continue

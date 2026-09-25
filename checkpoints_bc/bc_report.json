@@ -170,23 +170,24 @@
   "games": {
     "random": {
       "episodes": 300,
-      "wins_a": 220,
-      "wins_b": 50,
-      "nagari": 30,
-      "win_rate_a": 0.7333333333333333,
-      "win_rate_b": 0.16666666666666666,
-      "ci_low": 0.6805715919237879,
-      "ci_high": 0.7801948074106021
+      "wins_a": 219,
+      "wins_b": 37,
+      "nagari": 44,
+      "win_rate_a": 0.73,
+      "win_rate_b": 0.12333333333333334,
+      "ci_low": 0.6770872468075737,
+      "ci_high": 0.7770967753934679
     },
     "heuristic": {
       "episodes": 300,
-      "wins_a": 118,
-      "wins_b": 122,
-      "nagari": 60,
-      "win_rate_a": 0.3933333333333333,
-      "win_rate_b": 0.4066666666666667,
-      "ci_low": 0.33973815664027024,
-      "ci_high": 0.44962577509258
+      "wins_a": 107,
+      "wins_b": 134,
+      "nagari": 59,
+      "win_rate_a": 0.3566666666666667,
+      "win_rate_b": 0.44666666666666666,
+      "ci_low": 0.3045865042894623,
+      "ci_high": 0.41237127897655523
     }
-  }
+  },
+  "games_note": "recomputed with the position-balanced harness (rl.evaluate.episode_setup); the original run used a schedule under which the policy always moved second"
 }

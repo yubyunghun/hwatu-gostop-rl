@@ -1,0 +1,761 @@
+{
+  "games": 300,
+  "metrics": {
+    "heuristic (reference)": {
+      "agree_with_heuristic": 1.0,
+      "play_agree": 1.0,
+      "takes_available_capture": 1.0,
+      "picks_best_capture": 0.9947257383966245,
+      "dumps_lowest_value": 1.0,
+      "declares_bomb": 1.0,
+      "goes_on": 0.8246753246753247,
+      "mean_score_when_go": 8.32283464566929,
+      "mean_score_when_stop": 12.814814814814815,
+      "go_hands_won": 0.8651685393258427,
+      "win_rate_vs_heuristic": 0.36,
+      "n_play": 2752,
+      "n_capture_avail": 1896,
+      "n_gostop": 154,
+      "n_bomb_avail": 59
+    },
+    "cloned heuristic (BC)": {
+      "agree_with_heuristic": 0.9678837052062205,
+      "play_agree": 0.965768390386016,
+      "takes_available_capture": 1.0,
+      "picks_best_capture": 0.9867864693446089,
+      "dumps_lowest_value": 0.9882903981264637,
+      "declares_bomb": 1.0,
+      "goes_on": 0.8289473684210527,
+      "mean_score_when_go": 8.373015873015873,
+      "mean_score_when_stop": 12.461538461538462,
+      "go_hands_won": 0.8941176470588236,
+      "win_rate_vs_heuristic": 0.3566666666666667,
+      "n_play": 2746,
+      "n_capture_avail": 1892,
+      "n_gostop": 152,
+      "n_bomb_avail": 60
+    },
+    "BC + PPO fine-tune": {
+      "agree_with_heuristic": 0.8136666666666666,
+      "play_agree": 0.8130169003955412,
+      "takes_available_capture": 0.9989658738366081,
+      "picks_best_capture": 0.9798136645962733,
+      "dumps_lowest_value": 0.7449822904368358,
+      "declares_bomb": 1.0,
+      "goes_on": 0.9939024390243902,
+      "mean_score_when_go": 9.650306748466258,
+      "mean_score_when_stop": 30.0,
+      "go_hands_won": 0.8526315789473684,
+      "win_rate_vs_heuristic": 0.38333333333333336,
+      "n_play": 2781,
+      "n_capture_avail": 1934,
+      "n_gostop": 164,
+      "n_bomb_avail": 55
+    },
+    "PPO from scratch (shaping)": {
+      "agree_with_heuristic": 0.3998630605956864,
+      "play_agree": 0.3911954187544739,
+      "takes_available_capture": 0.6563723357981731,
+      "picks_best_capture": 0.6507620941020543,
+      "dumps_lowest_value": 0.6,
+      "declares_bomb": 0.6666666666666666,
+      "goes_on": 0.5753424657534246,
+      "mean_score_when_go": 9.69047619047619,
+      "mean_score_when_stop": 8.419354838709678,
+      "go_hands_won": 1.0,
+      "win_rate_vs_heuristic": 0.2633333333333333,
+      "n_play": 2794,
+      "n_capture_avail": 2299,
+      "n_gostop": 73,
+      "n_bomb_avail": 54
+    }
+  },
+  "examples": {
+    "heuristic (reference)": [],
+    "cloned heuristic (BC)": [
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "1-ribbon-hongdan_1",
+          "1-junk-pi_1a",
+          "3-junk-pi_3b",
+          "7-junk-pi_7a",
+          "9-junk-pi_9a",
+          "11-junk-pi_11b",
+          "11-junk-ssangpi_11"
+        ],
+        "field": [
+          "5-animal-bridge",
+          "8-gwang-full_moon",
+          "10-junk-pi_10a"
+        ],
+        "model": "1-junk-pi_1a",
+        "heuristic": "9-junk-pi_9a",
+        "model_captures": false,
+        "heuristic_captures": false,
+        "model_value": null,
+        "heuristic_value": null
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "6-junk-pi_6b",
+          "7-junk-pi_7b"
+        ],
+        "field": [
+          "2-junk-pi_2b",
+          "6-junk-pi_6a",
+          "7-ribbon-chodan_7"
+        ],
+        "model": "6-junk-pi_6b",
+        "heuristic": "7-junk-pi_7b",
+        "model_captures": true,
+        "heuristic_captures": true,
+        "model_value": 2,
+        "heuristic_value": 3
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "4-ribbon-chodan_4",
+          "9-animal-sake_cup",
+          "9-ribbon-cheongdan_9",
+          "12-gwang-rain_man",
+          "12-ribbon-rain_ribbon"
+        ],
+        "field": [
+          "1-ribbon-hongdan_1"
+        ],
+        "model": "12-ribbon-rain_ribbon",
+        "heuristic": "9-ribbon-cheongdan_9",
+        "model_captures": false,
+        "heuristic_captures": false,
+        "model_value": null,
+        "heuristic_value": null
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "5-animal-bridge",
+          "9-animal-sake_cup"
+        ],
+        "field": [
+          "1-junk-pi_1b",
+          "4-ribbon-chodan_4",
+          "6-junk-pi_6b",
+          "7-junk-pi_7b",
+          "11-junk-ssangpi_11"
+        ],
+        "model": "5-animal-bridge",
+        "heuristic": "9-animal-sake_cup",
+        "model_captures": false,
+        "heuristic_captures": false,
+        "model_value": null,
+        "heuristic_value": null
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "5-ribbon-chodan_5",
+          "10-ribbon-cheongdan_10",
+          "12-junk-ssangpi_12"
+        ],
+        "field": [
+          "2-ribbon-hongdan_2",
+          "6-junk-pi_6b",
+          "7-animal-boar",
+          "7-ribbon-chodan_7",
+          "7-junk-pi_7a"
+        ],
+        "model": "10-ribbon-cheongdan_10",
+        "heuristic": "12-junk-ssangpi_12",
+        "model_captures": false,
+        "heuristic_captures": false,
+        "model_value": null,
+        "heuristic_value": null
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "3-gwang-curtain",
+          "3-ribbon-hongdan_3",
+          "3-junk-pi_3a",
+          "11-junk-pi_11b",
+          "12-animal-swallow"
+        ],
+        "field": [
+          "2-ribbon-hongdan_2",
+          "4-animal-cuckoo",
+          "6-animal-butterflies",
+          "6-junk-pi_6b",
+          "9-junk-pi_9a",
+          "10-junk-pi_10a"
+        ],
+        "model": "11-junk-pi_11b",
+        "heuristic": "3-junk-pi_3a",
+        "model_captures": false,
+        "heuristic_captures": false,
+        "model_value": null,
+        "heuristic_value": null
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "1-ribbon-hongdan_1",
+          "1-junk-pi_1b",
+          "6-ribbon-cheongdan_6",
+          "7-ribbon-chodan_7",
+          "7-junk-pi_7b",
+          "8-animal-geese",
+          "10-junk-pi_10a",
+          "11-junk-pi_11b"
+        ],
+        "field": [
+          "4-ribbon-chodan_4",
+          "5-junk-pi_5b",
+          "6-animal-butterflies",
+          "7-animal-boar",
+          "9-junk-pi_9b",
+          "12-ribbon-rain_ribbon"
+        ],
+        "model": "7-ribbon-chodan_7",
+        "heuristic": "6-ribbon-cheongdan_6",
+        "model_captures": true,
+        "heuristic_captures": true,
+        "model_value": 5,
+        "heuristic_value": 5
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "2-animal-bush_warbler",
+          "2-junk-pi_2a",
+          "3-junk-pi_3b",
+          "5-animal-bridge",
+          "5-junk-pi_5b",
+          "7-animal-boar",
+          "8-gwang-full_moon",
+          "9-ribbon-cheongdan_9",
+          "9-junk-pi_9a",
+          "10-ribbon-cheongdan_10"
+        ],
+        "field": [
+          "3-junk-pi_3a",
+          "5-ribbon-chodan_5",
+          "6-junk-pi_6b",
+          "7-ribbon-chodan_7",
+          "8-animal-geese",
+          "9-animal-sake_cup"
+        ],
+        "model": "9-ribbon-cheongdan_9",
+        "heuristic": "8-gwang-full_moon",
+        "model_captures": true,
+        "heuristic_captures": true,
+        "model_value": 5,
+        "heuristic_value": 7
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "1-junk-pi_1b",
+          "3-junk-pi_3b",
+          "4-junk-pi_4b",
+          "8-animal-geese",
+          "9-ribbon-cheongdan_9",
+          "9-junk-pi_9a",
+          "10-junk-pi_10b",
+          "11-gwang-phoenix",
+          "12-ribbon-rain_ribbon"
+        ],
+        "field": [
+          "1-ribbon-hongdan_1",
+          "5-junk-pi_5b",
+          "7-ribbon-chodan_7",
+          "7-junk-pi_7b",
+          "8-junk-pi_8b",
+          "9-junk-pi_9b"
+        ],
+        "model": "9-ribbon-cheongdan_9",
+        "heuristic": "8-animal-geese",
+        "model_captures": true,
+        "heuristic_captures": true,
+        "model_value": 3,
+        "heuristic_value": 4
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "1-ribbon-hongdan_1",
+          "5-junk-pi_5a",
+          "6-junk-pi_6b",
+          "7-junk-pi_7a",
+          "8-gwang-full_moon",
+          "8-animal-geese",
+          "9-ribbon-cheongdan_9"
+        ],
+        "field": [
+          "2-junk-pi_2a",
+          "8-junk-pi_8b",
+          "9-animal-sake_cup"
+        ],
+        "model": "8-gwang-full_moon",
+        "heuristic": "9-ribbon-cheongdan_9",
+        "model_captures": true,
+        "heuristic_captures": true,
+        "model_value": 5,
+        "heuristic_value": 5
+      }
+    ],
+    "BC + PPO fine-tune": [
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "3-ribbon-hongdan_3",
+          "3-junk-pi_3a",
+          "8-junk-pi_8a",
+          "9-ribbon-cheongdan_9",
+          "10-junk-pi_10a",
+          "12-junk-ssangpi_12"
+        ],
+        "field": [
+          "3-junk-pi_3b",
+          "4-animal-cuckoo",
+          "4-ribbon-chodan_4",
+          "5-ribbon-chodan_5",
+          "9-junk-pi_9b",
+          "12-ribbon-rain_ribbon"
+        ],
+        "model": "12-junk-ssangpi_12",
+        "heuristic": "9-ribbon-cheongdan_9",
+        "model_captures": true,
+        "heuristic_captures": true,
+        "model_value": 3,
+        "heuristic_value": 3
+      },
+      {
+        "decision": "GO_STOP",
+        "hand": [
+          "5-junk-pi_5a"
+        ],
+        "field": [
+          "5-ribbon-chodan_5",
+          "7-ribbon-chodan_7",
+          "8-junk-pi_8b"
+        ],
+        "model": "GO",
+        "heuristic": "STOP"
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "1-junk-pi_1a",
+          "7-ribbon-chodan_7",
+          "7-junk-pi_7b",
+          "9-ribbon-cheongdan_9",
+          "11-gwang-phoenix"
+        ],
+        "field": [
+          "5-junk-pi_5b",
+          "8-gwang-full_moon",
+          "10-junk-pi_10a"
+        ],
+        "model": "7-ribbon-chodan_7",
+        "heuristic": "1-junk-pi_1a",
+        "model_captures": false,
+        "heuristic_captures": false,
+        "model_value": null,
+        "heuristic_value": null
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "1-ribbon-hongdan_1",
+          "2-ribbon-hongdan_2",
+          "3-junk-pi_3b",
+          "4-ribbon-chodan_4",
+          "9-junk-pi_9b"
+        ],
+        "field": [
+          "6-animal-butterflies"
+        ],
+        "model": "1-ribbon-hongdan_1",
+        "heuristic": "9-junk-pi_9b",
+        "model_captures": false,
+        "heuristic_captures": false,
+        "model_value": null,
+        "heuristic_value": null
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "1-gwang-crane_sun",
+          "1-junk-pi_1b",
+          "9-junk-pi_9b"
+        ],
+        "field": [
+          "3-junk-pi_3b",
+          "6-ribbon-cheongdan_6",
+          "10-ribbon-cheongdan_10"
+        ],
+        "model": "9-junk-pi_9b",
+        "heuristic": "1-junk-pi_1b",
+        "model_captures": false,
+        "heuristic_captures": false,
+        "model_value": null,
+        "heuristic_value": null
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "1-junk-pi_1b",
+          "3-ribbon-hongdan_3",
+          "8-junk-pi_8b",
+          "9-junk-pi_9a"
+        ],
+        "field": [
+          "1-ribbon-hongdan_1",
+          "2-junk-pi_2b",
+          "3-junk-pi_3a",
+          "5-junk-pi_5b",
+          "10-junk-pi_10b"
+        ],
+        "model": "3-ribbon-hongdan_3",
+        "heuristic": "1-junk-pi_1b",
+        "model_captures": true,
+        "heuristic_captures": true,
+        "model_value": 3,
+        "heuristic_value": 3
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "2-junk-pi_2a",
+          "3-junk-pi_3a",
+          "3-junk-pi_3b",
+          "7-animal-boar",
+          "7-ribbon-chodan_7",
+          "9-animal-sake_cup",
+          "11-junk-pi_11a",
+          "12-ribbon-rain_ribbon"
+        ],
+        "field": [
+          "1-gwang-crane_sun",
+          "3-ribbon-hongdan_3",
+          "4-animal-cuckoo",
+          "9-junk-pi_9a",
+          "11-junk-pi_11b"
+        ],
+        "model": "3-junk-pi_3a",
+        "heuristic": "9-animal-sake_cup",
+        "model_captures": true,
+        "heuristic_captures": true,
+        "model_value": 3,
+        "heuristic_value": 4
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "1-junk-pi_1b",
+          "3-junk-pi_3b",
+          "5-animal-bridge",
+          "5-junk-pi_5b",
+          "9-junk-pi_9a"
+        ],
+        "field": [
+          "6-ribbon-cheongdan_6",
+          "7-junk-pi_7a",
+          "8-gwang-full_moon",
+          "10-junk-pi_10b",
+          "11-junk-pi_11a",
+          "11-junk-pi_11b",
+          "11-junk-ssangpi_11"
+        ],
+        "model": "5-animal-bridge",
+        "heuristic": "9-junk-pi_9a",
+        "model_captures": false,
+        "heuristic_captures": false,
+        "model_value": null,
+        "heuristic_value": null
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "6-ribbon-cheongdan_6",
+          "6-junk-pi_6a",
+          "6-junk-pi_6b",
+          "7-junk-pi_7a",
+          "11-junk-ssangpi_11"
+        ],
+        "field": [
+          "1-junk-pi_1b",
+          "3-ribbon-hongdan_3",
+          "4-ribbon-chodan_4",
+          "10-junk-pi_10a",
+          "12-junk-ssangpi_12"
+        ],
+        "model": "6-ribbon-cheongdan_6",
+        "heuristic": "11-junk-ssangpi_11",
+        "model_captures": false,
+        "heuristic_captures": false,
+        "model_value": null,
+        "heuristic_value": null
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "1-ribbon-hongdan_1",
+          "1-junk-pi_1a",
+          "7-junk-pi_7a",
+          "9-junk-pi_9a",
+          "11-junk-ssangpi_11"
+        ],
+        "field": [
+          "8-gwang-full_moon"
+        ],
+        "model": "1-junk-pi_1a",
+        "heuristic": "9-junk-pi_9a",
+        "model_captures": false,
+        "heuristic_captures": false,
+        "model_value": null,
+        "heuristic_value": null
+      }
+    ],
+    "PPO from scratch (shaping)": [
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "1-ribbon-hongdan_1",
+          "1-junk-pi_1b",
+          "2-junk-pi_2b",
+          "3-ribbon-hongdan_3",
+          "4-animal-cuckoo",
+          "5-animal-bridge",
+          "5-ribbon-chodan_5",
+          "7-junk-pi_7a",
+          "9-ribbon-cheongdan_9",
+          "9-junk-pi_9a"
+        ],
+        "field": [
+          "3-gwang-curtain",
+          "4-junk-pi_4b",
+          "7-animal-boar",
+          "9-junk-pi_9b",
+          "10-animal-deer",
+          "12-ribbon-rain_ribbon"
+        ],
+        "model": "4-animal-cuckoo",
+        "heuristic": "3-ribbon-hongdan_3",
+        "model_captures": true,
+        "heuristic_captures": true,
+        "model_value": 4,
+        "heuristic_value": 6
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "2-junk-pi_2a",
+          "2-junk-pi_2b",
+          "3-ribbon-hongdan_3",
+          "4-animal-cuckoo",
+          "4-junk-pi_4a",
+          "5-animal-bridge",
+          "11-junk-ssangpi_11",
+          "12-junk-ssangpi_12"
+        ],
+        "field": [
+          "1-gwang-crane_sun",
+          "2-animal-bush_warbler",
+          "9-junk-pi_9b"
+        ],
+        "model": "4-junk-pi_4a",
+        "heuristic": "2-junk-pi_2a",
+        "model_captures": false,
+        "heuristic_captures": true,
+        "model_value": null,
+        "heuristic_value": 4
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "3-gwang-curtain",
+          "5-junk-pi_5b",
+          "12-animal-swallow"
+        ],
+        "field": [
+          "1-gwang-crane_sun",
+          "3-ribbon-hongdan_3",
+          "4-junk-pi_4b",
+          "7-animal-boar",
+          "8-junk-pi_8b",
+          "12-junk-ssangpi_12"
+        ],
+        "model": "12-animal-swallow",
+        "heuristic": "3-gwang-curtain",
+        "model_captures": true,
+        "heuristic_captures": true,
+        "model_value": 4,
+        "heuristic_value": 6
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "1-gwang-crane_sun",
+          "1-junk-pi_1b",
+          "2-junk-pi_2a",
+          "4-animal-cuckoo",
+          "6-junk-pi_6a"
+        ],
+        "field": [
+          "4-junk-pi_4b",
+          "8-animal-geese",
+          "9-junk-pi_9a",
+          "10-ribbon-cheongdan_10",
+          "11-junk-pi_11a"
+        ],
+        "model": "1-gwang-crane_sun",
+        "heuristic": "4-animal-cuckoo",
+        "model_captures": false,
+        "heuristic_captures": true,
+        "model_value": null,
+        "heuristic_value": 4
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "1-ribbon-hongdan_1",
+          "3-ribbon-hongdan_3",
+          "6-junk-pi_6a",
+          "8-gwang-full_moon",
+          "10-junk-pi_10a"
+        ],
+        "field": [
+          "5-junk-pi_5a",
+          "7-junk-pi_7a",
+          "8-junk-pi_8a"
+        ],
+        "model": "3-ribbon-hongdan_3",
+        "heuristic": "8-gwang-full_moon",
+        "model_captures": false,
+        "heuristic_captures": true,
+        "model_value": null,
+        "heuristic_value": 5
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "10-animal-deer",
+          "11-gwang-phoenix"
+        ],
+        "field": [
+          "1-ribbon-hongdan_1",
+          "2-ribbon-hongdan_2",
+          "5-junk-pi_5b",
+          "7-junk-pi_7b",
+          "8-junk-pi_8a"
+        ],
+        "model": "11-gwang-phoenix",
+        "heuristic": "10-animal-deer",
+        "model_captures": false,
+        "heuristic_captures": false,
+        "model_value": null,
+        "heuristic_value": null
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "1-ribbon-hongdan_1",
+          "3-junk-pi_3a",
+          "3-junk-pi_3b",
+          "5-junk-pi_5a",
+          "6-ribbon-cheongdan_6",
+          "7-ribbon-chodan_7",
+          "8-gwang-full_moon",
+          "9-ribbon-cheongdan_9",
+          "12-gwang-rain_man"
+        ],
+        "field": [
+          "6-junk-pi_6a",
+          "7-animal-boar",
+          "8-junk-pi_8b",
+          "11-junk-ssangpi_11"
+        ],
+        "model": "3-junk-pi_3b",
+        "heuristic": "7-ribbon-chodan_7",
+        "model_captures": false,
+        "heuristic_captures": true,
+        "model_value": null,
+        "heuristic_value": 5
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "2-ribbon-hongdan_2",
+          "4-animal-cuckoo",
+          "7-animal-boar",
+          "9-junk-pi_9b",
+          "10-junk-pi_10a",
+          "10-junk-pi_10b",
+          "11-gwang-phoenix",
+          "11-junk-ssangpi_11"
+        ],
+        "field": [
+          "1-junk-pi_1a",
+          "2-junk-pi_2b",
+          "7-junk-pi_7a",
+          "9-junk-pi_9a"
+        ],
+        "model": "9-junk-pi_9b",
+        "heuristic": "7-animal-boar",
+        "model_captures": true,
+        "heuristic_captures": true,
+        "model_value": 2,
+        "heuristic_value": 4
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "3-junk-pi_3a",
+          "5-animal-bridge",
+          "5-junk-pi_5a",
+          "7-ribbon-chodan_7",
+          "8-junk-pi_8b",
+          "12-ribbon-rain_ribbon",
+          "12-junk-ssangpi_12"
+        ],
+        "field": [
+          "1-ribbon-hongdan_1",
+          "5-junk-pi_5b",
+          "9-junk-pi_9a"
+        ],
+        "model": "12-junk-ssangpi_12",
+        "heuristic": "5-animal-bridge",
+        "model_captures": false,
+        "heuristic_captures": true,
+        "model_value": null,
+        "heuristic_value": 4
+      },
+      {
+        "decision": "PLAY_CARD",
+        "hand": [
+          "5-junk-pi_5a",
+          "7-ribbon-chodan_7",
+          "8-gwang-full_moon",
+          "12-junk-ssangpi_12"
+        ],
+        "field": [
+          "4-animal-cuckoo",
+          "5-ribbon-chodan_5",
+          "6-ribbon-cheongdan_6",
+          "8-junk-pi_8a",
+          "11-junk-pi_11b"
+        ],
+        "model": "5-junk-pi_5a",
+        "heuristic": "8-gwang-full_moon",
+        "model_captures": true,
+        "heuristic_captures": true,
+        "model_value": 3,
+        "heuristic_value": 5
+      }
+    ]
+  }
+}
