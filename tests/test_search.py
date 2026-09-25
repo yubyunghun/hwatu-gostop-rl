@@ -118,3 +118,18 @@ def test_nodes_restriction_leaves_other_decisions_to_the_base_policy():
     searching = SearchPolicy(determinizations=8, min_z=0.0, seed=2, nodes="play")
     searching(engine, legal)
     assert searching.searched == 1
+
+
+def test_served_search_bot_plays_a_full_game_legally():
+    from api.bot_inference import load_search_bot_policy
+
+    policy = load_search_bot_policy(determinizations=4)
+    engine = GoStopEngine(num_players=2, dealer=0, rng=random.Random(21))
+    steps = 0
+    while not engine.state.hand_over:
+        steps += 1
+        assert steps < 200
+        legal = np.flatnonzero(legal_action_mask(engine))
+        action = policy(engine, legal)
+        assert action in legal
+        apply_action(engine, int(action))

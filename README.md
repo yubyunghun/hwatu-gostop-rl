@@ -262,7 +262,8 @@ Caveats that matter:
   The gain is measured against exactly the opponent the search models, and would likely be smaller
   against a different style of play. I haven't tested that.
 - **It is expensive.** Roughly 60 sampled worlds times every legal action, each played to the end of the
-  hand, at every decision. It runs offline in parallel here; it is not what the web app serves.
+  hand, at every decision. It runs offline in parallel here; the web app serves it anyway, since a single game only needs a decision every few seconds (about
+  0.3 s on average and under 1 s at the 95th percentile, measured).
 - **Worlds are sampled uniformly.** The search doesn't infer anything from which cards the opponent
   has played or passed on.
 - I used one setting (`min_z` = 1.0, 60 worlds) and did not sweep either, so these numbers are not the
@@ -273,7 +274,7 @@ columns shift by a few points between reruns (the vs-heuristic columns are exact
 
 ## Testing
 
-98 pytest tests, including:
+99 pytest tests, including:
 - Full rules coverage (cards, dealing, capture/ppeok/ttadak/bombs, scoring, go/stop/nagari) with
   hand-checked example hands
 - A 100-seed randomized full-hand simulation that checks card conservation and termination on every
@@ -334,8 +335,8 @@ from `requirements.txt` plus `torch` from the CPU wheel index — see comments i
 .venv\Scripts\python.exe -m rl.evaluate
 ```
 
-**Serve the API** (loads the most recent checkpoint, or falls back to the heuristic bot if none
-exists yet):
+**Serve the API** (the bot plays with determinized search on top of the heuristic; `api/bot_inference.py`
+also has the network-based policy):
 ```
 .venv\Scripts\python.exe -m uvicorn api.main:app --port 8000
 ```
@@ -355,7 +356,7 @@ rl/        Gym env, action/observation encoding, baselines, self-play PPO traini
 api/       FastAPI session + bot-inference layer
 web/       React + TypeScript frontend
 scripts/   play_cli.py -- terminal play for manual sanity-checking
-tests/     98 pytest tests across all of the above
+tests/     99 pytest tests across all of the above
 checkpoints/  trained model checkpoints (gitignored) + training_log.csv + the curve plot
 ```
 
