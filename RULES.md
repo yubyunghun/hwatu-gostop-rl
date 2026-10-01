@@ -161,3 +161,28 @@ layer, not inside a single RL training episode.
   deliverable.
 - 3-player-specific go-bak variant (paying for a third player's losses) — engine is 3-player-dealing
   capable (Section 2) but 3-player go/stop settlement is a stretch-phase concern, not v1.
+- `NUM_BONUS_CARDS = 0` — bonus/joker cards (보너스패, sometimes themed, e.g. 도깨비 decks), which many
+  printed Korean hwatu decks add on top of the standard 48. Mechanic pinned per
+  [Wikipedia, Go-Stop](https://en.wikipedia.org/wiki/Go-Stop), quoted verbatim since it's the one
+  source that states the mechanic precisely (pagat.com and gostopguide describe a similar but not
+  identical joker rule; this project follows Wikipedia where they differ):
+  - "If there is a bonus card on the table during initial deal, the dealer collects the bonus card
+    and turns the top card of the draw pile face-up and places it on the table."
+  - "If a player is dealt a bonus card, they may add it to their stock pile at the beginning of any
+    turn and draw a card from the draw pile to replace it in their hand." (v1 plan: auto-resolve this
+    at the start of the holder's turn rather than modeling it as a real choice — banking it is never
+    worse than holding it, so there's no decision to make, matching how this project already
+    auto-resolves other no-choice situations.)
+  - "If a player draws a bonus card from the draw pile during their regular turn, they will
+    automatically collect it along with any other cards matched during that turn, except in the
+    event of a ppeok, in which all four cards (i.e. the three cards involved in the ppeok plus the
+    bonus card) must remain on the table."
+  - A bonus card is never placed in the field for matching (it has no month) and is captured outright
+    wherever this section sends it.
+  - Not pinned by Wikipedia and still open: how many bonus cards per deck, and their pi value when
+    captured. Confirm against the physical deck in use before implementing; see the open question
+    this raised in conversation.
+  - Not implemented yet because it isn't just an engine change: card ids 0-47 are structural
+    throughout (`rl/action_space.py`'s `Discrete(51)`, `rl/obs_encoding.py`'s 48-wide multi-hot
+    vectors), so turning this on resizes the action and observation spaces and invalidates every
+    existing checkpoint under `checkpoints*/` — they would need retraining from scratch.
