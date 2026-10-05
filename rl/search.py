@@ -28,6 +28,7 @@ import random
 
 import numpy as np
 
+from engine.cards import NUM_CARDS
 from engine.engine import GoStopEngine
 from engine.state import DecisionNode
 from rl.action_space import apply_action, legal_action_mask
@@ -53,7 +54,7 @@ def determinize(engine: GoStopEngine, me: int, rng: random.Random) -> GoStopEngi
     opp = s.opponents(me)[0]
     known = set(s.players[me].hand) | set(s.field_cards())
     known |= set(s.players[me].captured) | set(s.players[opp].captured)
-    unseen = [c for c in range(48) if c not in known]
+    unseen = [c for c in range(NUM_CARDS) if c not in known]
     rng.shuffle(unseen)
     k = len(s.players[opp].hand)
 

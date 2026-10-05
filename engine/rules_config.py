@@ -1,6 +1,8 @@
 """Every rule-variant constant the engine uses. See RULES.md for sourcing and the
 worked reasoning behind each value — change values there and here together."""
 
+import os
+
 # Section 2: dealing (RULES.md #2)
 DEALING_TABLE: dict[int, dict[str, int]] = {
     2: {"hand": 10, "field": 6, "deck": 22},
@@ -50,5 +52,12 @@ NAGARI_STAKE_MULTIPLIER = 2
 
 # Section 12: deferred, not implemented in v1 (RULES.md #12)
 HEUNDEUL_ENABLED = False
-NUM_BONUS_CARDS = 0  # off until the open question in RULES.md #12 is resolved
+
+# Bonus cards are fully implemented (engine, dealing, scoring, search -- RULES.md #12) but default to
+# off, because this constant sizes the global card registry (engine/cards.py:CARDS) that every
+# trained checkpoint under checkpoints*/ was produced against; flipping it process-wide would make
+# those checkpoints' saved network shapes stop matching. An env var lets a server process opt in
+# (e.g. `HWATU_NUM_BONUS_CARDS=3 uvicorn api.main:app`) without moving the shared default that the
+# training/eval scripts and test suite run against.
+NUM_BONUS_CARDS = int(os.environ.get("HWATU_NUM_BONUS_CARDS", "0"))
 BONUS_CARD_PI_VALUE = 2  # pinned value once enabled: counts like a ssangpi (double-junk) card

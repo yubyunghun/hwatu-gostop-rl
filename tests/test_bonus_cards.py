@@ -7,6 +7,7 @@ needed -- see `engine/cards.py`'s `_build_deck`.
 """
 
 import random
+from contextlib import ExitStack
 from unittest.mock import patch
 
 from engine.cards import Category, _build_deck, card, pi_value
@@ -22,9 +23,42 @@ _BONUS_IDS = [48, 49, 50]
 
 
 def _with_bonus_cards():
-    """A context manager patching engine.cards.CARDS for the duration of a `with` block."""
+    """A context manager patching engine.cards.CARDS for the duration of a `with` block. Enough for
+    everything in engine/ -- card()/month_of()/pi_value()/new_shuffled_deck() all read CARDS as a
+    module global at call time, not a value captured at import time (see engine/cards.py)."""
     import engine.cards as cards_module
     return patch.object(cards_module, "CARDS", _BONUS_CARDS)
+
+
+def _with_bonus_cards_and_rl_resized():
+    """Like `_with_bonus_cards`, but also patches every rl/ module constant that's baked in from
+    engine.cards.NUM_CARDS at *import* time (NUM_CARDS, ACTION_SIZE, SKIP, GO, STOP in
+    rl/action_space.py; NUM_CARDS in rl/search.py) -- those are plain ints copied in once, not live
+    lookups, so a CARDS-only patch doesn't reach them. This reproduces exactly what a process started
+    with NUM_BONUS_CARDS = 3 would have computed, for testing rl/action_space.py and rl/search.py's
+    dynamic sizing without the fragility of reloading modules. Also covers
+    rl/baselines/heuristic_agent.py's GO/STOP, which it imports by value at its own module load
+    ("from rl.action_space import GO, STOP") -- a real server process started fresh with
+    HWATU_NUM_BONUS_CARDS set has no staleness problem here since import order makes every module
+    compute its constants from the correctly-configured registry the first and only time; this test
+    helper just has to patch each copy explicitly since it's simulating that after the fact."""
+    import engine.cards as cards_module
+    import rl.action_space as action_space_module
+    import rl.baselines.heuristic_agent as heuristic_agent_module
+    import rl.search as search_module
+    n = len(_BONUS_CARDS)
+    stack = ExitStack()
+    stack.enter_context(patch.object(cards_module, "CARDS", _BONUS_CARDS))
+    stack.enter_context(patch.object(cards_module, "NUM_CARDS", n))
+    stack.enter_context(patch.object(action_space_module, "NUM_CARDS", n))
+    stack.enter_context(patch.object(action_space_module, "SKIP", n))
+    stack.enter_context(patch.object(action_space_module, "GO", n + 1))
+    stack.enter_context(patch.object(action_space_module, "STOP", n + 2))
+    stack.enter_context(patch.object(action_space_module, "ACTION_SIZE", n + 3))
+    stack.enter_context(patch.object(search_module, "NUM_CARDS", n))
+    stack.enter_context(patch.object(heuristic_agent_module, "GO", n + 1))
+    stack.enter_context(patch.object(heuristic_agent_module, "STOP", n + 2))
+    return stack
 
 
 def test_build_deck_adds_monthless_bonus_cards_worth_the_pinned_pi_value():
@@ -146,13 +180,32 @@ def test_engine_banks_a_hand_held_bonus_card_at_the_start_of_the_turn():
         engine = GoStopEngine(num_players=2, dealer=0, rng=random.Random(1))
         player = engine.state.turn
         engine.state.players[player].hand.add(48)
-        engine.state.deck = [99]  # the only possible replacement, so the draw is deterministic
+        # A real, valid, non-bonus card id (the loop re-scans the whole hand afterwards looking for a
+        # cascading bonus replacement -- see the next test -- so this has to be a real card() lookup).
+        engine.state.deck = [1]
 
         engine._resolve_bonus_cards_in_hand(player)
 
         assert 48 not in engine.state.players[player].hand
         assert 48 in engine.state.players[player].captured
-        assert 99 in engine.state.players[player].hand  # replacement drawn blind from the deck
+        assert 1 in engine.state.players[player].hand  # replacement drawn blind from the deck
+        assert engine.state.deck == []
+
+
+def test_engine_resolves_a_cascading_bonus_card_replacement():
+    """The blind replacement itself can be another bonus card; that one needs resolving too, in the
+    same turn, not left sitting in the hand for a future PLAY_CARD decision to trip over."""
+    with _with_bonus_cards():
+        engine = GoStopEngine(num_players=2, dealer=0, rng=random.Random(1))
+        player = engine.state.turn
+        engine.state.players[player].hand.add(48)
+        engine.state.deck = [49, 1]  # the first replacement (49) is itself a bonus card
+
+        engine._resolve_bonus_cards_in_hand(player)
+
+        assert engine.state.players[player].hand.isdisjoint({48, 49})
+        assert {48, 49}.issubset(set(engine.state.players[player].captured))
+        assert 1 in engine.state.players[player].hand
         assert engine.state.deck == []
 
 
@@ -168,6 +221,89 @@ def test_engine_never_offers_a_bonus_card_as_a_play_card_option():
         if engine.state.pending_decision == DecisionNode.PLAY_CARD:
             legal = legal_action_mask(engine)
             assert not legal[48] and not legal[49] and not legal[50]
+
+
+def test_action_space_derives_its_size_from_the_card_registry():
+    """Default-settings sanity check -- see the sizing tests below for the enabled case. SKIP/GO/STOP
+    sit right after every card id rather than at hardcoded indices, so enabling bonus cards can never
+    collide a real card id with one of them (RULES.md #12)."""
+    from engine.cards import NUM_CARDS
+    from rl.action_space import ACTION_SIZE, GO, SKIP, STOP
+
+    assert SKIP == NUM_CARDS
+    assert GO == NUM_CARDS + 1
+    assert STOP == NUM_CARDS + 2
+    assert ACTION_SIZE == NUM_CARDS + 3
+
+
+def test_action_space_resizes_correctly_with_bonus_cards_enabled():
+    with _with_bonus_cards_and_rl_resized():
+        from rl.action_space import ACTION_SIZE, GO, SKIP, STOP
+
+        assert (SKIP, GO, STOP, ACTION_SIZE) == (51, 52, 53, 54)
+
+
+def test_obs_size_derives_from_the_card_registry():
+    from engine.cards import NUM_CARDS
+    from rl.obs_encoding import NUM_SCALARS, OBS_SIZE, _DECISION_NODES
+
+    assert OBS_SIZE == NUM_CARDS * 5 + NUM_SCALARS + len(_DECISION_NODES) + 1
+
+
+def test_determinize_includes_bonus_cards_in_the_unseen_pool():
+    """The old hardcoded range(48) would silently exclude bonus card ids from the sampled worlds,
+    undercounting the opponent's hand/deck the moment one was actually out there unseen."""
+    with _with_bonus_cards_and_rl_resized():
+        from rl.action_space import apply_action, legal_action_mask
+        from rl.baselines.heuristic_agent import heuristic_policy
+        from rl.search import determinize
+
+        engine = GoStopEngine(num_players=2, dealer=0, rng=random.Random(2))
+        for _ in range(6):
+            if engine.state.hand_over:
+                break
+            from rl.action_space import legal_action_mask as _mask
+            import numpy as np
+            legal = np.flatnonzero(_mask(engine))
+            apply_action(engine, int(heuristic_policy(engine, legal)))
+        if engine.state.hand_over:
+            return  # rare seed where the hand ended within 6 plies; nothing to sample here
+        me = engine.state.turn
+        opp = 1 - me
+        s = engine.state
+        known = (set(s.players[me].hand) | set(s.field_cards())
+                 | set(s.players[me].captured) | set(s.players[opp].captured))
+        expected_unseen = set(range(51)) - known
+
+        seen_bonus_ids_somewhere = False
+        for seed in range(20):
+            world = determinize(engine, me, random.Random(seed))
+            sampled = set(world.state.players[opp].hand) | set(world.state.deck)
+            assert sampled == expected_unseen  # conservation: exactly the unseen pool, every time
+            if sampled & set(_BONUS_IDS):
+                seen_bonus_ids_somewhere = True
+        if expected_unseen & set(_BONUS_IDS):
+            assert seen_bonus_ids_somewhere
+
+
+def test_search_policy_plays_a_full_game_with_bonus_cards_enabled():
+    with _with_bonus_cards_and_rl_resized():
+        import numpy as np
+
+        from rl.action_space import apply_action, legal_action_mask
+        from rl.search import SearchPolicy
+
+        engine = GoStopEngine(num_players=2, dealer=1, rng=random.Random(4))
+        policy = SearchPolicy(determinizations=4, min_z=1.0, seed=1)
+        steps = 0
+        while not engine.state.hand_over:
+            steps += 1
+            assert steps < 200
+            legal = np.flatnonzero(legal_action_mask(engine))
+            action = policy(engine, legal)
+            assert action in legal
+            apply_action(engine, int(action))
+        assert engine.state.result is not None
 
 
 def test_draw_blind_replacement_removes_exactly_one_card_and_is_reproducible_per_seed():

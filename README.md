@@ -274,7 +274,7 @@ columns shift by a few points between reruns (the vs-heuristic columns are exact
 
 ## Testing
 
-124 pytest tests, including:
+131 pytest tests, including:
 - Full rules coverage (cards, dealing, capture/ppeok/ttadak/bombs, scoring, go/stop/nagari) with
   hand-checked example hands
 - A 100-seed randomized full-hand simulation that checks card conservation and termination on every
@@ -286,8 +286,11 @@ columns shift by a few points between reruns (the vs-heuristic columns are exact
   cards; a search that never deviates reduces exactly to the heuristic
 - First-dealer selection and multi-hand match rotation (winner deals next, nagari keeps the dealer)
 - Bonus cards (off by default, `NUM_BONUS_CARDS = 0`): a 30-seed full-hand fuzz run with 3 bonus cards
-  enabled, mirroring the 48-card conservation fuzz test above but for the 51-card case, plus unit
-  coverage of all three ways a bonus card can be captured (RULES.md #12)
+  enabled, mirroring the 48-card conservation fuzz test above but for the 51-card case, unit coverage
+  of all three ways a bonus card can be captured, and the served search bot playing full games with
+  them on (RULES.md #12). Three real bugs only surfaced by actually running a bonus-card game end to
+  end through the live FastAPI app, not by unit tests alone -- documented in RULES.md #12 rather than
+  quietly fixed, since that gap in how it was tested is itself worth knowing about
 - A fast end-to-end training smoke test (MaskablePPO + self-play env + checkpoint pool wired
   together) that runs in a few seconds as a permanent regression check
 - API tests via FastAPI's `TestClient`, including that a session never leaks the opponent's hidden
@@ -345,6 +348,12 @@ also has the network-based policy):
 .venv\Scripts\python.exe -m uvicorn api.main:app --port 8000
 ```
 
+**Optional: play with bonus cards** (off by default -- see RULES.md #12):
+```
+set HWATU_NUM_BONUS_CARDS=3
+.venv\Scripts\python.exe -m uvicorn api.main:app --port 8000
+```
+
 **Run the web app** (in a second terminal, with the API running):
 ```
 cd web
@@ -360,7 +369,7 @@ rl/        Gym env, action/observation encoding, baselines, self-play PPO traini
 api/       FastAPI session + bot-inference layer
 web/       React + TypeScript frontend
 scripts/   play_cli.py -- terminal play for manual sanity-checking
-tests/     124 pytest tests across all of the above
+tests/     131 pytest tests across all of the above
 checkpoints/  trained model checkpoints (gitignored) + training_log.csv + the curve plot
 ```
 

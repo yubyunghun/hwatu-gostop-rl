@@ -48,6 +48,12 @@ def finalize_capture(state: GameState, player: int, card_ids: list[int], event_t
 
 def resolve_hand_play(state: GameState, player: int, card_id: int) -> None:
     """Removes card_id from the player's hand and resolves it against the field."""
+    if card(card_id).category is Category.BONUS:
+        # A bonus card is never a legal PLAY_CARD choice -- GoStopEngine._resolve_bonus_cards_in_hand
+        # always resolves it out of a hand before PLAY_CARD is ever offered (RULES.md #12). Reaching
+        # here means that invariant broke; fail loudly rather than silently filing it under
+        # field[None], which month_of's None would otherwise do.
+        raise ValueError(f"bonus card {card_id} cannot be played as a field move")
     state.players[player].hand.discard(card_id)
     month = month_of(card_id)
     pile = list(state.field.get(month, []))

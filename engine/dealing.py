@@ -49,11 +49,16 @@ def choose_first_dealer(num_players: int, rng: random.Random | None = None,
                          time_of_day: str = FIRST_DEALER_TIME_OF_DAY) -> int:
     """Each player draws one card from a freshly shuffled deck; see RULES.md #2a. A day game favors
     the latest month (ties broken by the higher-ranked card); a night game favors the earliest month
-    (ties broken by the lower-ranked card). Returns the winning seat index."""
+    (ties broken by the lower-ranked card). Returns the winning seat index.
+
+    A bonus card (RULES.md #12), if any are in play, is never one of the draws: it has no month or
+    category rank to compare by, and nothing in any source describes using one for this -- the
+    natural reading is that only the real 48 ever take part."""
     if time_of_day not in ("day", "night"):
         raise ValueError(f"time_of_day must be 'day' or 'night', got {time_of_day!r}")
     rng = rng or random.Random()
-    draws = new_shuffled_deck(rng)[:num_players]
+    shuffled = [cid for cid in new_shuffled_deck(rng) if card(cid).category is not Category.BONUS]
+    draws = shuffled[:num_players]
 
     def key(card_id: int) -> tuple[int, int]:
         c = card(card_id)

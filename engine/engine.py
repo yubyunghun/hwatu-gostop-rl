@@ -25,15 +25,23 @@ class GoStopEngine:
     def _resolve_bonus_cards_in_hand(self, player: int) -> None:
         """At the start of a turn, any bonus card already sitting in that player's hand is banked for
         a blind replacement draw (RULES.md #12). This is never modeled as a real decision -- banking
-        it is never worse than holding it, so there's nothing to choose."""
+        it is never worse than holding it, so there's nothing to choose.
+
+        Loops rather than a single pass: the blind replacement itself can be another bonus card, and
+        that one needs resolving too, same as the initial-deal cascade in
+        engine/dealing.py:_resolve_initial_bonus_cards."""
         s = self.state
         hand = s.players[player].hand
-        for cid in [c for c in hand if card(c).category is Category.BONUS]:
-            hand.discard(cid)
-            s.players[player].captured.append(cid)
-            s.emit(Event(EventType.BONUS_CARD, player, (cid,)))
-            if s.deck:
-                hand.add(draw_blind_replacement(s.deck, self._rng))
+        while True:
+            bonus_ids = [cid for cid in hand if card(cid).category is Category.BONUS]
+            if not bonus_ids:
+                return
+            for cid in bonus_ids:
+                hand.discard(cid)
+                s.players[player].captured.append(cid)
+                s.emit(Event(EventType.BONUS_CARD, player, (cid,)))
+                if s.deck:
+                    hand.add(draw_blind_replacement(s.deck, self._rng))
 
     def _enter_turn(self) -> None:
         s = self.state

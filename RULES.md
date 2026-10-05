@@ -220,13 +220,39 @@ training episode either way.
     range from a few to as many as the players agree on. Not to be confused with
     `PlayerState.bonus_pi_received`/`bonus_pi_paid`, an unrelated existing mechanic (sweep/ttadak
     penalty payments, sections 4/6) that happens to share the word "bonus".
-  - Why `NUM_BONUS_CARDS` still defaults to `0`: turning it on is more than the engine change above.
-    `rl/action_space.py`'s `Discrete(51)` reserves ids 48-50 for SKIP/GO/STOP — harmless in practice
-    since a bonus card is never offered as a PLAY_CARD or BOMB_DECISION option (it's always resolved
-    out of a hand before either decision is reached), but untested at the action-space level. More
-    concretely broken: `rl/search.py`'s `determinize` and `rl/obs_encoding.py`'s multi-hot vectors
-    both hardcode `range(48)`/width 48 for "every card not yet seen", so the currently-served search
-    bot and the RL observation encoder would both undercount or crash the moment a bonus card is
-    anywhere but a capture pile. And regardless of any of that, every existing checkpoint under
-    `checkpoints*/` was trained on a 48-card game, so enabling this for the network-based bot means
-    retraining, not just a config flip.
+  - **The served search bot and the rules engine fully support bonus cards**, verified by actually
+    playing games with them through the real FastAPI app (`TestClient` against `api.main.app`, not
+    just unit-level patches). `rl/action_space.py`'s SKIP/GO/STOP now sit at `NUM_CARDS`,
+    `NUM_CARDS + 1`, `NUM_CARDS + 2` (derived from `engine.cards.NUM_CARDS`) rather than hardcoded
+    48/49/50, so a growing card registry can never collide a real card id with one of them;
+    `rl/search.py`'s `determinize` and `rl/obs_encoding.py`'s multi-hot vectors size themselves off
+    the same `NUM_CARDS` instead of a hardcoded 48. All of this is a no-op at the default
+    `NUM_BONUS_CARDS = 0` (same 48/51 sizes as always, byte-identical to before this was made
+    dynamic), so no existing checkpoint under `checkpoints*/` is affected unless bonus cards are
+    actually turned on -- and turning them on only matters for the network-based bot
+    (`rl/obs_encoding.py`), which isn't what's served; `api/deps.py` serves the search bot, which
+    never touches the observation encoder at all.
+  - **To actually play with bonus cards**, set `HWATU_NUM_BONUS_CARDS` (e.g. `3`) before starting the
+    server: `HWATU_NUM_BONUS_CARDS=3 uvicorn api.main:app --port 8000`. This is an env var, not a
+    permanent change to `NUM_BONUS_CARDS`'s default, specifically so the training/eval scripts and
+    the test suite keep running against the standard 48-card game unless someone deliberately opts
+    in for that process. `NUM_BONUS_CARDS` sizes the global card registry (`engine/cards.py:CARDS`)
+    once at import, like every other `rules_config` constant -- it is not a per-request or per-game
+    parameter, so don't expect two sessions in the same running server to differ on this.
+  - **Three real bugs were caught by actually running a bonus-card game end to end** (through
+    `TestClient` against the live app, not just unit tests against patched state) that no amount of
+    reasoning about the code would have caught by inspection alone:
+    1. `choose_first_dealer`'s draw could pull a bonus card and crash looking up its category rank
+       (a bonus card has none) -- fixed by excluding bonus cards from that draw's candidate pool
+       (nothing describes using one for this, and the natural reading is that only the real 48 ever
+       take part).
+    2. `GoStopEngine._resolve_bonus_cards_in_hand` only scanned a player's hand once, so a blind
+       replacement draw that was itself a bonus card got added to the hand but never resolved,
+       surfacing later as an illegal PLAY_CARD option -- fixed by looping until no bonus card remains
+       in the hand, mirroring the cascade already handled in `_resolve_initial_bonus_cards`.
+    3. Unrelated to bonus cards, but found while writing a fresh end-to-end smoke test: the existing
+       API tests' `BOMB_DECISION` handling called `month_of()` on a value that was already a month
+       (`GoStopEngine.legal_options()` returns bomb-able months directly, not card ids), which is
+       simply wrong -- it happened to never be caught because none of the suite's fixed seeds had
+       exercised that branch meaningfully before. Fixed in `tests/test_api.py`, with a new test that
+       forces a `BOMB_DECISION` directly rather than hoping a seed produces one.

@@ -84,6 +84,7 @@ def _build_deck(num_bonus_cards: int = NUM_BONUS_CARDS) -> tuple[Card, ...]:
 
 
 CARDS: tuple[Card, ...] = _build_deck()
+NUM_CARDS: int = len(CARDS)  # 48 + NUM_BONUS_CARDS -- the width every card-indexed array should use
 assert len(CARDS) == 48 + NUM_BONUS_CARDS
 assert sum(1 for c in CARDS if c.category is Category.GWANG) == 5
 assert sum(1 for c in CARDS if c.category is Category.ANIMAL) == 9

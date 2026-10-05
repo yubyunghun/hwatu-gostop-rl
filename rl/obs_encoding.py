@@ -8,6 +8,7 @@ multi-hot, matching what the acting player could actually infer from public stat
 
 import numpy as np
 
+from engine.cards import NUM_CARDS
 from engine.engine import GoStopEngine
 from engine.go_stop import current_raw_score
 from engine.state import DecisionNode
@@ -19,11 +20,13 @@ SCORE_NORM = 20.0
 _DECISION_NODES = (DecisionNode.PLAY_CARD, DecisionNode.BOMB_DECISION, DecisionNode.GO_STOP)
 
 NUM_SCALARS = 6
-OBS_SIZE = 48 * 5 + NUM_SCALARS + len(_DECISION_NODES) + 1
+# At the default NUM_BONUS_CARDS = 0, NUM_CARDS is 48, so this is the same size as always and every
+# existing checkpoint's input shape is unaffected.
+OBS_SIZE = NUM_CARDS * 5 + NUM_SCALARS + len(_DECISION_NODES) + 1
 
 
 def _multi_hot(card_ids) -> np.ndarray:
-    v = np.zeros(48, dtype=np.float32)
+    v = np.zeros(NUM_CARDS, dtype=np.float32)
     for cid in card_ids:
         v[cid] = 1.0
     return v
@@ -40,7 +43,7 @@ def encode(engine: GoStopEngine) -> np.ndarray:
     opp_captured_ids = s.players[opp].captured
 
     accounted = set(own_hand_ids) | set(field_ids) | set(own_captured_ids) | set(opp_captured_ids)
-    unseen_ids = [cid for cid in range(48) if cid not in accounted]
+    unseen_ids = [cid for cid in range(NUM_CARDS) if cid not in accounted]
 
     own_raw = current_raw_score(s, me)
     opp_raw = current_raw_score(s, opp)

@@ -1,29 +1,36 @@
-"""The single Discrete(51) action mapping shared by rl/env.py and (later)
+"""The single Discrete(ACTION_SIZE) action mapping shared by rl/env.py and
 api/bot_inference.py, so a trained policy's action indices mean the same thing in
 training and in production.
 
-0-47: a specific card id. Its meaning depends on the pending decision node:
+0 to NUM_CARDS-1: a specific card id. Its meaning depends on the pending decision node:
   - PLAY_CARD: play this card from hand.
   - BOMB_DECISION: declare a bomb for this card's month (the specific id used is
     arbitrary -- any hand card of that month -- since the mask picks a canonical one).
 Note there is no separate CAPTURE_CHOICE node: this engine's capture resolution is
 fully deterministic given the played/drawn card (see RULES.md section 4), so unlike
 some fishing-card games there is never a genuine multi-way capture choice to encode.
-48: SKIP -- decline an available bomb.
-49: GO.
-50: STOP.
+A bonus card id (RULES.md #12), if any exist, is never legal at either of the two nodes above -- it's
+always resolved out of a hand before PLAY_CARD/BOMB_DECISION is reached (GoStopEngine._resolve_bonus_cards_in_hand).
+NUM_CARDS: SKIP -- decline an available bomb.
+NUM_CARDS + 1: GO.
+NUM_CARDS + 2: STOP.
+
+SKIP/GO/STOP sit right after every card id rather than at fixed indices 48/49/50, so enabling bonus
+cards (which grows NUM_CARDS) can never collide a real card id with one of these. At the default
+NUM_BONUS_CARDS = 0, NUM_CARDS is 48 and these come out to the same 48/49/50 as always, so this is a
+no-op for every existing checkpoint.
 """
 
 import numpy as np
 
-from engine.cards import month_of
+from engine.cards import NUM_CARDS, month_of
 from engine.engine import GoStopEngine
 from engine.state import DecisionNode
 
-ACTION_SIZE = 51
-SKIP = 48
-GO = 49
-STOP = 50
+SKIP = NUM_CARDS
+GO = NUM_CARDS + 1
+STOP = NUM_CARDS + 2
+ACTION_SIZE = NUM_CARDS + 3
 
 
 def _month_action_id(engine: GoStopEngine, month: int) -> int:
@@ -59,7 +66,7 @@ def apply_action(engine: GoStopEngine, action: int) -> None:
     elif decision == DecisionNode.BOMB_DECISION:
         if action == SKIP:
             engine.skip_bomb()
-        elif 0 <= action < 48:
+        elif 0 <= action < NUM_CARDS:
             engine.declare_bomb(month_of(action))
         else:
             raise ValueError(f"illegal action {action} for BOMB_DECISION")
