@@ -12,6 +12,7 @@ export function ScoreBoard({ state }: { state: GameStateOut }) {
           </div>
           <CapturedPile cardIds={p.captured} score={p.score} />
           <div className="score-board__go">go x{p.go_count}</div>
+          <div className="score-board__match">match: {state.match_scores[p.seat]}</div>
         </div>
       ))}
       <div className="score-board__deck">deck: {state.deck_count} cards left</div>

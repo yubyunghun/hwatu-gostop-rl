@@ -90,3 +90,19 @@ def test_choose_first_dealer_rejects_bad_time_of_day():
 
     with pytest.raises(ValueError):
         choose_first_dealer(2, random.Random(0), time_of_day="noon")
+
+
+def test_choose_next_dealer_is_the_winner():
+    from engine.dealing import choose_next_dealer
+    from engine.state import HandResult
+
+    result = HandResult(winner=1, scores=[-20, 20])
+    assert choose_next_dealer(result, previous_dealer=0) == 1
+
+
+def test_choose_next_dealer_keeps_the_same_dealer_on_nagari():
+    from engine.dealing import choose_next_dealer
+    from engine.state import HandResult
+
+    result = HandResult(winner=None, scores=[0, 0], nagari=True)
+    assert choose_next_dealer(result, previous_dealer=1) == 1

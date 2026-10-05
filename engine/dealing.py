@@ -2,7 +2,7 @@ import random
 
 from engine.cards import Category, card, month_of, new_shuffled_deck
 from engine.rules_config import DEALING_TABLE, FIRST_DEALER_TIME_OF_DAY, REDEAL_ON_DEGENERATE_FIELD
-from engine.state import GameState, PlayerState
+from engine.state import GameState, HandResult, PlayerState
 
 # Tiebreak rank within a month, lowest to highest (RULES.md #2a): bright > animal > ribbon > junk.
 _CATEGORY_RANK = {Category.JUNK: 0, Category.RIBBON: 1, Category.ANIMAL: 2, Category.GWANG: 3}
@@ -32,6 +32,16 @@ def choose_first_dealer(num_players: int, rng: random.Random | None = None,
         return (c.month, rank) if time_of_day == "day" else (-c.month, -rank)
 
     return max(range(num_players), key=lambda seat: key(draws[seat]))
+
+
+def choose_next_dealer(result: HandResult, previous_dealer: int) -> int:
+    """Within one sitting, the winner of a hand deals the next one (RULES.md #2a); nagari is the
+    pinned exception (RULES.md #11) -- the same dealer redeals. "Dealer" is only ever a turn-order
+    label the engine tracks (see `GameState.dealer`, used solely to compute who plays first); no
+    player performs an actual dealing action, so there's nothing else for this to drive."""
+    if result.nagari or result.winner is None:
+        return previous_dealer
+    return result.winner
 
 
 def deal_new_hand(num_players: int, dealer: int, rng: random.Random | None = None) -> GameState:

@@ -65,10 +65,14 @@ highest-ranked card. Quoting pagat: "If the game is played at night the player w
 month and in case of a tie the lowest valued card of that month (bright>animal>ribbon>junk) is the
 first dealer. For a daytime game the first dealer is the player who drew the later month or the
 higher valued card in case of a tie." After the first hand, both sources agree the **winner deals
-the next hand**; nagari is the pinned exception (section 11): the same dealer redeals. Implemented in
-`engine/dealing.py:choose_first_dealer`. Win-deals-next and the full multi-hand rotation live above a
-single `GoStopEngine` hand (a `match.py`-level concern, not yet built — see project plan); only the
-first-dealer draw is implemented so far.
+the next hand**; nagari is the pinned exception (section 11): the same dealer redeals. Both rules
+live above a single `GoStopEngine` hand, so neither is inside the engine package itself:
+`engine/dealing.py:choose_first_dealer` picks the dealer for a sitting's first hand,
+`engine/dealing.py:choose_next_dealer` picks every one after it, and `api/session_manager.py`'s
+`Session.next_hand()` is what calls the latter and carries the running rng and match score forward
+when the web app's "Next hand" button is used, instead of starting an unrelated fresh hand. "Dealer"
+never means an actual dealing action here (see the docstring on `choose_next_dealer`) -- the engine
+always does the dealing; it's only ever a turn-order label.
 
 ## 3. Turn structure
 
@@ -167,8 +171,11 @@ hand-card counts don't have to divide evenly). At that point, whoever last quali
 (score >= `GO_STOP_MIN_SCORE`) with the highest score wins as if they'd stopped. If nobody ever
 qualified, the hand is void: no
 payment changes hands, the same dealer redeals, and next hand's stakes double
-(`NAGARI_STAKE_MULTIPLIER = 2`). Nagari staking is handled at the `match.py` (multi-hand session)
-layer, not inside a single RL training episode.
+(`NAGARI_STAKE_MULTIPLIER = 2`). The same-dealer-redeals half of this is implemented
+(`api/session_manager.py`'s `Session.next_hand()`, see section 2a); the stakes-double half is not
+yet consumed anywhere -- `NAGARI_STAKE_MULTIPLIER` is defined but nothing multiplies by it, since
+this project has no real-money or chip stake to double in the first place. Not inside a single RL
+training episode either way.
 
 ## 12. Explicitly deferred to a config flag, not implemented in v1
 

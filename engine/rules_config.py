@@ -44,7 +44,8 @@ GO_MULTIPLIER_START = 3  # multiplier = 2 ** max(0, go_count - (GO_MULTIPLIER_ST
 GOBAK_ENABLED = True
 GOBAK_MULTIPLIER = 2
 
-# Section 11: nagari (RULES.md #11) — consumed by match.py, not by a single RL episode
+# Section 11: nagari (RULES.md #11) — same-dealer-redeals is implemented at the API session layer
+# (api/session_manager.py); nothing currently multiplies by this, see RULES.md #11.
 NAGARI_STAKE_MULTIPLIER = 2
 
 # Section 12: deferred, not implemented in v1 (RULES.md #12)

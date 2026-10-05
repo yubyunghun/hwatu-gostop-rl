@@ -274,7 +274,7 @@ columns shift by a few points between reruns (the vs-heuristic columns are exact
 
 ## Testing
 
-103 pytest tests, including:
+111 pytest tests, including:
 - Full rules coverage (cards, dealing, capture/ppeok/ttadak/bombs, scoring, go/stop/nagari) with
   hand-checked example hands
 - A 100-seed randomized full-hand simulation that checks card conservation and termination on every
@@ -356,7 +356,7 @@ rl/        Gym env, action/observation encoding, baselines, self-play PPO traini
 api/       FastAPI session + bot-inference layer
 web/       React + TypeScript frontend
 scripts/   play_cli.py -- terminal play for manual sanity-checking
-tests/     103 pytest tests across all of the above
+tests/     111 pytest tests across all of the above
 checkpoints/  trained model checkpoints (gitignored) + training_log.csv + the curve plot
 ```
 

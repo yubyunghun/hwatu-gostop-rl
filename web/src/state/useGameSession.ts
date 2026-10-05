@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { createSession, submitAction as apiSubmitAction } from "../api/client";
+import { createSession, nextHand as apiNextHand, submitAction as apiSubmitAction } from "../api/client";
 import type { ActionRequest, GameStateOut } from "../types";
 
 export function useGameSession() {
@@ -35,5 +35,18 @@ export function useGameSession() {
     [state],
   );
 
-  return { state, busy, error, start, act };
+  const nextHand = useCallback(async () => {
+    if (!state) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setState(await apiNextHand(state.session_id));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [state]);
+
+  return { state, busy, error, start, act, nextHand };
 }

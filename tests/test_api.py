@@ -103,3 +103,45 @@ def test_get_session_matches_post_action_response():
 def test_unknown_session_is_404():
     client = _fresh_client()
     assert client.get("/sessions/does-not-exist").status_code == 404
+
+
+def test_next_hand_rejects_a_hand_still_in_progress():
+    client = _fresh_client()
+    resp = client.post("/sessions", json={"human_seat": 0, "seed": 1})
+    state = resp.json()
+    if state["hand_over"]:
+        return  # rare seed where the hand auto-ends immediately; nothing to test here
+    next_resp = client.post(f"/sessions/{state['session_id']}/next_hand")
+    assert next_resp.status_code == 409
+
+
+def test_next_hand_continues_the_match_with_accumulated_scores():
+    client = _fresh_client()
+    resp = client.post("/sessions", json={"human_seat": 0, "seed": 3})
+    state = resp.json()
+    rng = np.random.default_rng(3)
+    steps = 0
+    while not state["hand_over"]:
+        steps += 1
+        assert steps < 200, "API-driven hand did not terminate"
+        decision = state["pending_decision"]
+        options = state["legal_options"]
+        if decision == DecisionNode.PLAY_CARD.name:
+            req = {"type": "play_card", "card_id": int(rng.choice(options))}
+        elif decision == DecisionNode.BOMB_DECISION.name:
+            choice = rng.choice(options)
+            req = {"type": "skip_bomb"} if choice == "SKIP" else {"type": "declare_bomb", "month": None}
+            if req["type"] == "declare_bomb":
+                from engine.cards import month_of
+                req["month"] = month_of(int(choice))
+        else:  # GO_STOP
+            req = {"type": "go"} if rng.random() < 0.5 else {"type": "stop"}
+        state = client.post(f"/sessions/{state['session_id']}/actions", json=req).json()
+    assert state["match_scores"] == [0, 0]  # nothing banked until a hand actually finishes
+
+    next_resp = client.post(f"/sessions/{state['session_id']}/next_hand")
+    assert next_resp.status_code == 200
+    new_state = next_resp.json()
+    assert new_state["session_id"] == state["session_id"]
+    assert new_state["match_scores"] == state["result"]["scores"]
+    assert not new_state["hand_over"] or new_state["result"] is not None

@@ -47,6 +47,7 @@ export interface GameStateOut {
   hand_over: boolean;
   result: ResultOut | null;
   recent_events: EventOut[];
+  match_scores: number[];
 }
 
 export type ActionRequest =

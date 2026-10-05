@@ -35,3 +35,7 @@ export function submitAction(sessionId: string, action: ActionRequest): Promise<
     body: JSON.stringify(action),
   });
 }
+
+export function nextHand(sessionId: string): Promise<GameStateOut> {
+  return request<GameStateOut>(`/sessions/${sessionId}/next_hand`, { method: "POST" });
+}

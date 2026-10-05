@@ -5,7 +5,7 @@ import random
 import uuid
 
 from engine.cards import card
-from engine.dealing import choose_first_dealer
+from engine.dealing import choose_first_dealer, choose_next_dealer
 from engine.engine import GoStopEngine
 from engine.go_stop import current_raw_score
 
@@ -13,11 +13,29 @@ from api.schemas import CardOut, EventOut, GameStateOut, PlayerOut, ResultOut
 
 
 class Session:
-    def __init__(self, session_id: str, engine: GoStopEngine, human_seat: int):
+    """One match: a human and a bot seat that stays fixed across every hand played in the same
+    sitting, plus the running rng and cumulative match score that let `next_hand()` continue it
+    rather than starting a fresh, unrelated hand."""
+
+    def __init__(self, session_id: str, engine: GoStopEngine, human_seat: int, rng: random.Random):
         self.session_id = session_id
         self.engine = engine
         self.human_seat = human_seat
         self.bot_seat = engine.state.opponents(human_seat)[0]
+        self.rng = rng
+        self.match_scores = [0] * engine.state.num_players
+
+    def next_hand(self) -> None:
+        """Deal the next hand of the same sitting: the previous hand's winner deals (same dealer
+        again on nagari -- RULES.md #2a/#11), and the rng carries over rather than reseeding, same
+        as a continuously-shuffled physical deck across hands."""
+        s = self.engine.state
+        if not s.hand_over:
+            raise ValueError("current hand is not over yet")
+        for seat, score in enumerate(s.result.scores):
+            self.match_scores[seat] += score
+        next_dealer = choose_next_dealer(s.result, s.dealer)
+        self.engine = GoStopEngine(num_players=s.num_players, dealer=next_dealer, rng=self.rng)
 
 
 class SessionManager:
@@ -31,7 +49,7 @@ class SessionManager:
         dealer = choose_first_dealer(2, rng)
         engine = GoStopEngine(num_players=2, dealer=dealer, rng=rng)
         session_id = str(uuid.uuid4())
-        session = Session(session_id, engine, human_seat)
+        session = Session(session_id, engine, human_seat, rng)
         self._sessions[session_id] = session
         return session
 
@@ -78,4 +96,5 @@ def serialize_state(session: Session, recent_event_count: int = 5) -> GameStateO
         pending_decision=s.pending_decision.name, legal_options=legal_options,
         players=players, field=sorted(s.field_cards()), deck_count=len(s.deck),
         hand_over=s.hand_over, result=result, recent_events=recent_events,
+        match_scores=list(session.match_scores),
     )

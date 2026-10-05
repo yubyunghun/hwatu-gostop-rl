@@ -7,7 +7,7 @@ import { ScoreBoard } from "../components/ScoreBoard";
 import { useGameSession } from "../state/useGameSession";
 
 export function GamePage() {
-  const { state, busy, error, start, act } = useGameSession();
+  const { state, busy, error, start, act, nextHand } = useGameSession();
 
   if (!state) {
     return (
@@ -61,8 +61,12 @@ export function GamePage() {
               Scores: {state.result.scores.join(" / ")}
             </p>
           )}
+          <p className="match-scores">Match total: {state.match_scores.join(" / ")}</p>
+          <button type="button" disabled={busy} onClick={nextHand}>
+            Next hand
+          </button>
           <button type="button" disabled={busy} onClick={() => start(0)}>
-            Play again
+            New match
           </button>
         </div>
       )}

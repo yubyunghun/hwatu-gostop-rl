@@ -48,6 +48,7 @@ class GameStateOut(BaseModel):
     hand_over: bool
     result: ResultOut | None
     recent_events: list[EventOut]
+    match_scores: list[int]  # cumulative score per seat across every hand played in this sitting
 
 
 class CreateSessionRequest(BaseModel):

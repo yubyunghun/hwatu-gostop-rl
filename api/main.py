@@ -106,3 +106,18 @@ def submit_action(session_id: str, req: ActionRequest,
     _apply_human_action(session, req)
     _run_bot_turns(session, bot_policy)
     return serialize_state(session)
+
+
+@app.post("/sessions/{session_id}/next_hand", response_model=GameStateOut)
+def next_hand(session_id: str, manager: SessionManager = Depends(get_session_manager),
+              bot_policy=Depends(get_bot_policy)):
+    """Continue the same match into a new hand, same seats, dealer rotated per RULES.md #2a."""
+    try:
+        session = manager.get(session_id)
+    except KeyError:
+        raise HTTPException(404, "session not found")
+    if not session.engine.state.hand_over:
+        raise HTTPException(409, "current hand is not over yet")
+    session.next_hand()
+    _run_bot_turns(session, bot_policy)
+    return serialize_state(session)
