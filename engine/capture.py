@@ -8,7 +8,7 @@ also the same month the whole trio locks as a ppeok pile instead of being captur
 but marks `state.ttadak_watch_month` so the draw can be checked for ttadak (section 6).
 """
 
-from engine.cards import month_of
+from engine.cards import Category, card, month_of
 from engine.rules_config import PPEOK_PENALTY_PI, SWEEP_BONUS_PI, TTADAK_PENALTY_PI
 from engine.state import Event, EventType, GameState
 
@@ -68,8 +68,26 @@ def resolve_hand_play(state: GameState, player: int, card_id: int) -> None:
         finalize_capture(state, player, pile + [card_id], EventType.CAPTURE)
 
 
+def _resolve_bonus_draw(state: GameState, player: int, drawn_card_id: int) -> None:
+    """A bonus card turned up by the forced post-play draw is collected outright (RULES.md #12). It
+    has no month, so it can never be the card that turns a pending pair into a ppeok -- that pair, if
+    any, resolves as an ordinary non-matching draw first, same as it would for any other card."""
+    if state.pending_pair is not None:
+        hand_card_id, field_card_id = state.pending_pair
+        _remove_from_field(state, month_of(hand_card_id), [hand_card_id, field_card_id])
+        finalize_capture(state, player, [hand_card_id, field_card_id], EventType.CAPTURE)
+        state.pending_pair = None
+    state.ttadak_watch_month = None
+    state.players[player].captured.append(drawn_card_id)
+    state.emit(Event(EventType.BONUS_CARD, player, (drawn_card_id,)))
+
+
 def resolve_draw(state: GameState, player: int, drawn_card_id: int) -> None:
     """Resolves the forced post-play deck draw, including any pending ppeok/ttadak check."""
+    if card(drawn_card_id).category is Category.BONUS:
+        _resolve_bonus_draw(state, player, drawn_card_id)
+        return
+
     month = month_of(drawn_card_id)
 
     if state.pending_pair is not None:

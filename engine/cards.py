@@ -1,13 +1,17 @@
-"""48-card Hwatu deck metadata. Card composition is pinned in RULES.md section 1 —
-change the table there first if a rule variant changes the deck, not here.
+"""48-card Hwatu deck metadata, plus `NUM_BONUS_CARDS` optional bonus cards on top (RULES.md section
+1 and 12) — change the rule there first if a variant changes the deck, not here.
 
-Card ids are 0-47: id = (month - 1) * 4 + slot, slot in 0..3 per the per-month
-ordering in _MONTH_SPECS below.
+Card ids are 0-47 for the standard deck: id = (month - 1) * 4 + slot, slot in 0..3 per the
+per-month ordering in _MONTH_SPECS below. Bonus cards, if any, get ids 48..48+NUM_BONUS_CARDS-1.
+They belong to no month (`month=None`) and are never placed in the field for matching — see
+RULES.md #12 for where each one goes instead.
 """
 
 from dataclasses import dataclass
 from enum import Enum
 import random
+
+from engine.rules_config import BONUS_CARD_PI_VALUE, NUM_BONUS_CARDS
 
 
 class Category(Enum):
@@ -15,12 +19,13 @@ class Category(Enum):
     ANIMAL = "animal"
     RIBBON = "ribbon"
     JUNK = "junk"
+    BONUS = "bonus"
 
 
 @dataclass(frozen=True)
 class Card:
     id: int
-    month: int
+    month: int | None
     category: Category
     name: str
     is_godori: bool = False
@@ -64,22 +69,27 @@ _MONTH_SPECS: dict[int, list[tuple]] = {
 }
 
 
-def _build_deck() -> tuple[Card, ...]:
+def _build_deck(num_bonus_cards: int = NUM_BONUS_CARDS) -> tuple[Card, ...]:
+    """Pure and parameterized (rather than reading the module-level config directly) so bonus-card
+    construction can be tested in isolation without touching process-wide state."""
     cards = []
     for month, specs in _MONTH_SPECS.items():
         for slot, (category, name, flags) in enumerate(specs):
             card_id = (month - 1) * 4 + slot
             cards.append(Card(id=card_id, month=month, category=category, name=name, **flags))
+    for i in range(num_bonus_cards):
+        cards.append(Card(id=48 + i, month=None, category=Category.BONUS, name=f"bonus_{i + 1}"))
     cards.sort(key=lambda c: c.id)
     return tuple(cards)
 
 
 CARDS: tuple[Card, ...] = _build_deck()
-assert len(CARDS) == 48
+assert len(CARDS) == 48 + NUM_BONUS_CARDS
 assert sum(1 for c in CARDS if c.category is Category.GWANG) == 5
 assert sum(1 for c in CARDS if c.category is Category.ANIMAL) == 9
 assert sum(1 for c in CARDS if c.category is Category.RIBBON) == 10
 assert sum(1 for c in CARDS if c.category is Category.JUNK) == 24
+assert sum(1 for c in CARDS if c.category is Category.BONUS) == NUM_BONUS_CARDS
 assert sum(1 for c in CARDS if c.is_ssangpi) == 2
 assert sum(1 for c in CARDS if c.is_godori) == 3
 
@@ -94,20 +104,26 @@ def card(card_id: int) -> Card:
     return CARDS[card_id]
 
 
-def month_of(card_id: int) -> int:
+def month_of(card_id: int) -> int | None:
+    """None for a bonus card (RULES.md #12) -- it belongs to no month and is never field-matchable.
+    Callers that might see a bonus card id must check `card(card_id).category` before relying on
+    this being an int; every current caller only ever sees ids already known to be non-bonus."""
     return CARDS[card_id].month
 
 
 def new_shuffled_deck(rng: random.Random | None = None) -> list[int]:
     rng = rng or random.Random()
-    ids = list(range(48))
+    ids = list(range(len(CARDS)))
     rng.shuffle(ids)
     return ids
 
 
 def pi_value(card_id: int) -> int:
-    """Points a captured junk card contributes toward the pi-count score. 0 for non-junk cards."""
+    """Points a captured card contributes toward the pi-count score. 0 for a card that doesn't
+    contribute one (everything but junk and bonus cards)."""
     c = CARDS[card_id]
+    if c.category is Category.BONUS:
+        return BONUS_CARD_PI_VALUE
     if c.category is not Category.JUNK:
         return 0
     return 2 if c.is_ssangpi else 1

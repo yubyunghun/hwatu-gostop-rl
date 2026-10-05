@@ -1,11 +1,11 @@
 // Mirrors api/schemas.py. Keep these in sync by hand -- the project is small
 // enough that a codegen step would be more ceremony than value.
 
-export type Category = "gwang" | "animal" | "ribbon" | "junk";
+export type Category = "gwang" | "animal" | "ribbon" | "junk" | "bonus";
 
 export interface CardMeta {
   id: number;
-  month: number;
+  month: number | null; // null for a bonus card (RULES.md #12), which belongs to no month
   category: Category;
   name: string;
 }

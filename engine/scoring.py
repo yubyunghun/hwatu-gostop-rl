@@ -65,7 +65,9 @@ def score_player(captured: list[int], bonus_pi_received: int = 0, bonus_pi_paid:
     gwang = _gwang_score(by_category[Category.GWANG])
     animal = _animal_score(by_category[Category.ANIMAL])
     ribbon = _ribbon_score(by_category[Category.RIBBON])
-    pi_raw = sum(pi_value(cid) for cid in by_category[Category.JUNK])
+    # Bonus cards (RULES.md #12) contribute to the pi count the same way junk does, just via a
+    # different category so they don't get mixed into junk-specific logic elsewhere.
+    pi_raw = sum(pi_value(cid) for cid in by_category[Category.JUNK] + by_category[Category.BONUS])
     pi_count = pi_raw + bonus_pi_received - bonus_pi_paid
     pi = 0
     if pi_count >= PI_SCORE_THRESHOLD:

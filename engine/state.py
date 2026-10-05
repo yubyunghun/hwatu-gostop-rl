@@ -23,6 +23,7 @@ class EventType(Enum):
     STOP = auto()
     NAGARI = auto()
     HAND_END = auto()
+    BONUS_CARD = auto()  # a bonus card was banked (RULES.md #12), regardless of how it reached the player
 
 
 @dataclass(frozen=True)

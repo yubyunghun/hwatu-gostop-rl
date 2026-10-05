@@ -185,38 +185,48 @@ training episode either way.
 - 3-player-specific go-bak variant (paying for a third player's losses) — engine is 3-player-dealing
   capable (Section 2) but 3-player go/stop settlement is a stretch-phase concern, not v1.
 - `NUM_BONUS_CARDS = 0` — bonus/joker cards (보너스패, sometimes themed, e.g. 도깨비 decks), which many
-  printed Korean hwatu decks add on top of the standard 48. Mechanic pinned per
-  [Wikipedia, Go-Stop](https://en.wikipedia.org/wiki/Go-Stop), quoted verbatim since it's the one
-  source that states the mechanic precisely (pagat.com and gostopguide describe a similar but not
-  identical joker rule; this project follows Wikipedia where they differ):
-  - "If there is a bonus card on the table during initial deal, the dealer collects the bonus card
-    and turns the top card of the draw pile face-up and places it on the table."
-  - "If a player is dealt a bonus card, they may add it to their stock pile at the beginning of any
-    turn and draw a card from the draw pile to replace it in their hand." (v1 plan: auto-resolve this
-    at the start of the holder's turn rather than modeling it as a real choice — banking it is never
-    worse than holding it, so there's no decision to make, matching how this project already
-    auto-resolves other no-choice situations.)
-  - "If a player draws a bonus card from the draw pile during their regular turn, they will
-    automatically collect it along with any other cards matched during that turn, except in the
-    event of a ppeok, in which all four cards (i.e. the three cards involved in the ppeok plus the
-    bonus card) must remain on the table."
-  - A bonus card is never placed in the field for matching (it has no month) and is captured outright
-    wherever this section sends it — whichever player's capture pile it lands in (the dealer, for
-    the initial-deal case) scores it the same as any other captured card, no different from how a
-    normal capture counts.
-  - Not pinned by Wikipedia, confirmed instead against the physical deck in play: `NUM_BONUS_CARDS`
-    defaults to `3` when enabled, with no fixed limit — real decks range from a few to as many as the
-    players agree on. `BONUS_CARD_PI_VALUE = 2`: a captured bonus card counts toward the pi-count
-    score the same as a ssangpi (double-junk) card, versus 1 for an ordinary junk card. Not to be
-    confused with `PlayerState.bonus_pi_received`/`bonus_pi_paid`, an unrelated existing mechanic
-    (sweep/ttadak penalty payments, section 4/6) that happens to share the word "bonus".
-  - Still open: when a player banks a hand-dealt bonus card for a replacement (the second bullet
-    above), is the replacement a blind draw (as Wikipedia's "draw a card from the draw pile" implies
-    — the player can't see the card first) or a free pick of any specific card in the stock? This
-    changes whether it's an ordinary auto-resolved draw or a new decision that exposes otherwise-
-    hidden deck contents to the picking player, so it's being confirmed before implementing rather
-    than guessed.
-  - Not implemented yet because it isn't just an engine change: card ids 0-47 are structural
-    throughout (`rl/action_space.py`'s `Discrete(51)`, `rl/obs_encoding.py`'s 48-wide multi-hot
-    vectors), so turning this on resizes the action and observation spaces and invalidates every
-    existing checkpoint under `checkpoints*/` — they would need retraining from scratch.
+  printed Korean hwatu decks add on top of the standard 48. **Engine, dealing, and scoring support
+  are implemented and tested** (`engine/cards.py`, `engine/dealing.py`, `engine/capture.py`,
+  `engine/scoring.py`, `engine/engine.py`, `tests/test_bonus_cards.py`); the constant stays `0` by
+  default only because of the serving-layer gap in the last bullet below, not because the rule itself
+  is unbuilt. Mechanic pinned per [Wikipedia, Go-Stop](https://en.wikipedia.org/wiki/Go-Stop), quoted
+  verbatim since it's the one source that states it precisely (pagat.com and gostopguide describe a
+  similar but not identical joker rule; this project follows Wikipedia where they differ), confirmed
+  against the physical deck in play where Wikipedia is silent:
+  - *On the table at the initial deal*: "the dealer collects the bonus card and turns the top card of
+    the draw pile face-up and places it on the table" — the literal top card, not a blind pick (that's
+    the next case). Scores for whichever player ends up holding it (the dealer here) exactly like any
+    other captured card; see `engine/dealing.py:_resolve_initial_bonus_cards` (cascades if the
+    replacement is itself a bonus card) and `choose_first_dealer`/`choose_next_dealer` above for who
+    "the dealer" is in the first place.
+  - *Dealt into a player's hand*: "they may add it to their stock pile at the beginning of any turn
+    and draw a card from the draw pile to replace it in their hand." Confirmed in conversation: this
+    replacement is a blind pick of any card in the stock — chosen by position, not by seeing its
+    face, so it's equivalent to a uniform-random draw (`engine/dealing.py:draw_blind_replacement`).
+    Auto-resolved at the start of the holder's turn rather than modeled as a real choice — banking it
+    is never worse than holding it, so there's no decision to make (`GoStopEngine._resolve_bonus_cards_in_hand`),
+    matching how this project already auto-resolves other no-choice situations.
+  - *Flipped from the stock mid-turn*: "they will automatically collect it along with any other cards
+    matched during that turn" (`engine/capture.py:_resolve_bonus_draw`). The quoted ppeok exception
+    ("all four cards... must remain on the table") can't actually arise here: a ppeok requires the
+    draw's month to match the pending pair's, and a bonus card has no month, so it can never be that
+    fourth card. What the implementation does instead, which is the sensible reading of the same
+    situation: the pending pair resolves as an ordinary non-matching draw (a normal 2-card capture),
+    and the bonus card is collected separately on top of that.
+  - A bonus card is never placed in the field for matching — it has no month — and contributes 2 to
+    the pi-count score once captured (`BONUS_CARD_PI_VALUE = 2`, same as a ssangpi/double-junk card,
+    versus 1 for an ordinary junk card), regardless of which of the three cases above put it there.
+    `NUM_BONUS_CARDS` has no fixed limit when enabled; `3` is the pinned default, since real decks
+    range from a few to as many as the players agree on. Not to be confused with
+    `PlayerState.bonus_pi_received`/`bonus_pi_paid`, an unrelated existing mechanic (sweep/ttadak
+    penalty payments, sections 4/6) that happens to share the word "bonus".
+  - Why `NUM_BONUS_CARDS` still defaults to `0`: turning it on is more than the engine change above.
+    `rl/action_space.py`'s `Discrete(51)` reserves ids 48-50 for SKIP/GO/STOP — harmless in practice
+    since a bonus card is never offered as a PLAY_CARD or BOMB_DECISION option (it's always resolved
+    out of a hand before either decision is reached), but untested at the action-space level. More
+    concretely broken: `rl/search.py`'s `determinize` and `rl/obs_encoding.py`'s multi-hot vectors
+    both hardcode `range(48)`/width 48 for "every card not yet seen", so the currently-served search
+    bot and the RL observation encoder would both undercount or crash the moment a bonus card is
+    anywhere but a capture pile. And regardless of any of that, every existing checkpoint under
+    `checkpoints*/` was trained on a 48-card game, so enabling this for the network-based bot means
+    retraining, not just a config flip.

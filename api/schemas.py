@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 class CardOut(BaseModel):
     id: int
-    month: int
+    month: int | None  # None for a bonus card (RULES.md #12), which belongs to no month
     category: str
     name: str
 

@@ -11,9 +11,38 @@ _CATEGORY_RANK = {Category.JUNK: 0, Category.RIBBON: 1, Category.ANIMAL: 2, Cate
 def _is_degenerate_field(field_ids: list[int]) -> bool:
     counts: dict[int, int] = {}
     for cid in field_ids:
+        if card(cid).category is Category.BONUS:
+            continue  # has no month, can't be part of an unresolvable same-month pile
         m = month_of(cid)
         counts[m] = counts.get(m, 0) + 1
     return any(count >= 3 for count in counts.values())
+
+
+def draw_blind_replacement(pile: list[int], rng: random.Random) -> int:
+    """Removes and returns one card from `pile` without looking at any of them first -- used for a
+    bonus card's hand replacement (RULES.md #12: "you can choose any of the cards in the deck
+    without seeing it"), which is a free pick of position but not of identity, so it's equivalent to
+    a uniform-random draw. Mutates `pile` in place."""
+    return pile.pop(rng.randrange(len(pile)))
+
+
+def _resolve_initial_bonus_cards(field_ids: list[int], draw_pile: list[int], dealer_captured: list[int],
+                                   ) -> list[int]:
+    """A bonus card dealt face-up at the initial deal is swapped out immediately: the dealer banks it
+    and the *top* card of the stock is turned up in its place (RULES.md #12, quoting Wikipedia: "the
+    dealer collects the bonus card and turns the top card of the draw pile face-up"). Repeats if that
+    replacement is itself a bonus card. Returns the field ids with every bonus card resolved out."""
+    resolved: list[int] = []
+    pending = list(field_ids)
+    while pending:
+        cid = pending.pop(0)
+        if card(cid).category is not Category.BONUS:
+            resolved.append(cid)
+            continue
+        dealer_captured.append(cid)
+        if draw_pile:
+            pending.append(draw_pile.pop(0))
+    return resolved
 
 
 def choose_first_dealer(num_players: int, rng: random.Random | None = None,
@@ -59,16 +88,20 @@ def deal_new_hand(num_players: int, dealer: int, rng: random.Random | None = Non
             cursor += sizes["hand"]
         field_ids = deck[cursor:cursor + sizes["field"]]
         cursor += sizes["field"]
-        draw_pile = deck[cursor:cursor + sizes["deck"]]
+        # Everything left over, not a fixed `sizes["deck"]` slice -- bonus cards (if any) only ever
+        # enlarge the undealt stock, never the hand or field sizes pinned in RULES.md #2.
+        draw_pile = deck[cursor:]
 
         if not (REDEAL_ON_DEGENERATE_FIELD and _is_degenerate_field(field_ids)):
             break
+
+    players = [PlayerState(hand=hands[i]) for i in range(num_players)]
+    field_ids = _resolve_initial_bonus_cards(field_ids, draw_pile, players[dealer].captured)
 
     field: dict[int, list[int]] = {}
     for cid in field_ids:
         field.setdefault(month_of(cid), []).append(cid)
 
-    players = [PlayerState(hand=hands[i]) for i in range(num_players)]
     first_turn = (dealer + 1) % num_players
     return GameState(
         num_players=num_players,

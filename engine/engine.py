@@ -6,22 +6,40 @@ import random
 
 from engine.bombs import available_bomb_months, resolve_bomb
 from engine.capture import resolve_draw, resolve_hand_play
-from engine.dealing import deal_new_hand
+from engine.cards import Category, card
+from engine.dealing import deal_new_hand, draw_blind_replacement
 from engine.go_stop import check_go_stop_trigger, check_hands_exhausted_end, resolve_go, resolve_stop
-from engine.state import DecisionNode, GameState
+from engine.state import DecisionNode, Event, EventType, GameState
 
 
 class GoStopEngine:
     def __init__(self, num_players: int = 2, dealer: int = 0, rng: random.Random | None = None):
-        self.state: GameState = deal_new_hand(num_players, dealer, rng)
+        # Kept (not just used once at deal time) so a bonus card banked mid-hand (RULES.md #12) draws
+        # its blind replacement from the same continuous rng stream as everything else.
+        self._rng = rng or random.Random()
+        self.state: GameState = deal_new_hand(num_players, dealer, self._rng)
         self._enter_turn()
 
     # -- turn-structure plumbing -------------------------------------------------
+
+    def _resolve_bonus_cards_in_hand(self, player: int) -> None:
+        """At the start of a turn, any bonus card already sitting in that player's hand is banked for
+        a blind replacement draw (RULES.md #12). This is never modeled as a real decision -- banking
+        it is never worse than holding it, so there's nothing to choose."""
+        s = self.state
+        hand = s.players[player].hand
+        for cid in [c for c in hand if card(c).category is Category.BONUS]:
+            hand.discard(cid)
+            s.players[player].captured.append(cid)
+            s.emit(Event(EventType.BONUS_CARD, player, (cid,)))
+            if s.deck:
+                hand.add(draw_blind_replacement(s.deck, self._rng))
 
     def _enter_turn(self) -> None:
         s = self.state
         if s.hand_over:
             return
+        self._resolve_bonus_cards_in_hand(s.turn)
         if not s.players[s.turn].hand:
             # Hand emptied early (bombs consume 3 hand cards in one turn, so hands
             # can go out of lockstep). This player just resolves the forced deck
