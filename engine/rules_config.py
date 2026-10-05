@@ -10,6 +10,10 @@ DEALING_TABLE: dict[int, dict[str, int]] = {
 # rather than leave an unresolvable/degenerate starting pile.
 REDEAL_ON_DEGENERATE_FIELD = True
 
+# Section 2a: first-dealer draw (RULES.md #2a). "day" favors the latest month (and, on a tie, the
+# highest-ranked card); "night" favors the earliest month (and the lowest-ranked card on a tie).
+FIRST_DEALER_TIME_OF_DAY = "day"
+
 # Section 4/5/6/7: capture bonuses (RULES.md #4-7)
 SWEEP_BONUS_PI = 1
 PPEOK_RULESET = "LOCK_AND_PENALTY"
@@ -45,3 +49,5 @@ NAGARI_STAKE_MULTIPLIER = 2
 
 # Section 12: deferred, not implemented in v1 (RULES.md #12)
 HEUNDEUL_ENABLED = False
+NUM_BONUS_CARDS = 0  # off until the open question in RULES.md #12 is resolved
+BONUS_CARD_PI_VALUE = 2  # pinned value once enabled: counts like a ssangpi (double-junk) card

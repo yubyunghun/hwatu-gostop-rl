@@ -50,3 +50,43 @@ def test_deal_never_produces_degenerate_field():
 def test_initial_pending_decision_is_play_card():
     state = deal_new_hand(2, dealer=0, rng=random.Random(1))
     assert state.pending_decision == DecisionNode.PLAY_CARD
+
+
+def test_choose_first_dealer_returns_a_valid_seat_and_is_deterministic_per_seed():
+    from engine.dealing import choose_first_dealer
+
+    a = choose_first_dealer(2, random.Random(5))
+    b = choose_first_dealer(2, random.Random(5))
+    assert a == b
+    assert a in (0, 1)
+
+
+def test_choose_first_dealer_day_favors_latest_month_night_favors_earliest():
+    from unittest.mock import patch
+
+    from engine.dealing import choose_first_dealer
+
+    # Rig the "deal": seat 0 draws January gwang (month 1), seat 1 draws December ssangpi (month 12).
+    with patch("engine.dealing.new_shuffled_deck", return_value=[0, 47, 1, 2]):
+        assert choose_first_dealer(2, random.Random(0), time_of_day="day") == 1
+        assert choose_first_dealer(2, random.Random(0), time_of_day="night") == 0
+
+
+def test_choose_first_dealer_tiebreak_uses_category_rank():
+    from unittest.mock import patch
+
+    from engine.dealing import choose_first_dealer
+
+    # Same month (January: id 0 = gwang, id 2 = junk). Day favors the higher rank, night the lower.
+    with patch("engine.dealing.new_shuffled_deck", return_value=[2, 0]):
+        assert choose_first_dealer(2, random.Random(0), time_of_day="day") == 1
+        assert choose_first_dealer(2, random.Random(0), time_of_day="night") == 0
+
+
+def test_choose_first_dealer_rejects_bad_time_of_day():
+    import pytest
+
+    from engine.dealing import choose_first_dealer
+
+    with pytest.raises(ValueError):
+        choose_first_dealer(2, random.Random(0), time_of_day="noon")

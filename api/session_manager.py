@@ -5,6 +5,7 @@ import random
 import uuid
 
 from engine.cards import card
+from engine.dealing import choose_first_dealer
 from engine.engine import GoStopEngine
 from engine.go_stop import current_raw_score
 
@@ -25,7 +26,10 @@ class SessionManager:
 
     def create(self, human_seat: int = 0, seed: int | None = None) -> Session:
         rng = random.Random(seed)
-        engine = GoStopEngine(num_players=2, dealer=0, rng=rng)
+        # Real first-hand dealer selection (RULES.md #2a) rather than always seat 0 -- the human
+        # player is as likely to deal first as the bot is.
+        dealer = choose_first_dealer(2, rng)
+        engine = GoStopEngine(num_players=2, dealer=dealer, rng=rng)
         session_id = str(uuid.uuid4())
         session = Session(session_id, engine, human_seat)
         self._sessions[session_id] = session

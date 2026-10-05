@@ -1,8 +1,11 @@
 import random
 
-from engine.cards import month_of, new_shuffled_deck
-from engine.rules_config import DEALING_TABLE, REDEAL_ON_DEGENERATE_FIELD
+from engine.cards import Category, card, month_of, new_shuffled_deck
+from engine.rules_config import DEALING_TABLE, FIRST_DEALER_TIME_OF_DAY, REDEAL_ON_DEGENERATE_FIELD
 from engine.state import GameState, PlayerState
+
+# Tiebreak rank within a month, lowest to highest (RULES.md #2a): bright > animal > ribbon > junk.
+_CATEGORY_RANK = {Category.JUNK: 0, Category.RIBBON: 1, Category.ANIMAL: 2, Category.GWANG: 3}
 
 
 def _is_degenerate_field(field_ids: list[int]) -> bool:
@@ -11,6 +14,24 @@ def _is_degenerate_field(field_ids: list[int]) -> bool:
         m = month_of(cid)
         counts[m] = counts.get(m, 0) + 1
     return any(count >= 3 for count in counts.values())
+
+
+def choose_first_dealer(num_players: int, rng: random.Random | None = None,
+                         time_of_day: str = FIRST_DEALER_TIME_OF_DAY) -> int:
+    """Each player draws one card from a freshly shuffled deck; see RULES.md #2a. A day game favors
+    the latest month (ties broken by the higher-ranked card); a night game favors the earliest month
+    (ties broken by the lower-ranked card). Returns the winning seat index."""
+    if time_of_day not in ("day", "night"):
+        raise ValueError(f"time_of_day must be 'day' or 'night', got {time_of_day!r}")
+    rng = rng or random.Random()
+    draws = new_shuffled_deck(rng)[:num_players]
+
+    def key(card_id: int) -> tuple[int, int]:
+        c = card(card_id)
+        rank = _CATEGORY_RANK[c.category]
+        return (c.month, rank) if time_of_day == "day" else (-c.month, -rank)
+
+    return max(range(num_players), key=lambda seat: key(draws[seat]))
 
 
 def deal_new_hand(num_players: int, dealer: int, rng: random.Random | None = None) -> GameState:

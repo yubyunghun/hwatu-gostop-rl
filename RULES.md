@@ -54,6 +54,22 @@ face-up on the floor, the remaining 19 form the deck"). 2-player numbers are the
 deal and check out arithmetically (10*2 + 6 + 22 = 48). **v1 targets 2 players only** (see project
 plan); the table is still keyed by player count so the engine isn't hardcoded to one size.
 
+### 2a. Choosing the first dealer
+
+Pagat and Wikipedia agree on the method and disagree on nothing material, so this is pinned as-is.
+Each player draws one card from the shuffled deck. Who wins depends on the session's time of day
+(`FIRST_DEALER_TIME_OF_DAY`, pinned = `"day"`, the engine default when not told otherwise):
+night favors the earliest month (January) and, on a month tie, the lowest-ranked card of that month
+(bright > animal > ribbon > junk); day favors the latest month (December) and, on a tie, the
+highest-ranked card. Quoting pagat: "If the game is played at night the player who drew the earliest
+month and in case of a tie the lowest valued card of that month (bright>animal>ribbon>junk) is the
+first dealer. For a daytime game the first dealer is the player who drew the later month or the
+higher valued card in case of a tie." After the first hand, both sources agree the **winner deals
+the next hand**; nagari is the pinned exception (section 11): the same dealer redeals. Implemented in
+`engine/dealing.py:choose_first_dealer`. Win-deals-next and the full multi-hand rotation live above a
+single `GoStopEngine` hand (a `match.py`-level concern, not yet built — see project plan); only the
+first-dealer draw is implemented so far.
+
 ## 3. Turn structure
 
 Each turn: play one hand card -> resolve its capture -> draw one card from the deck -> resolve its
@@ -178,10 +194,21 @@ layer, not inside a single RL training episode.
     event of a ppeok, in which all four cards (i.e. the three cards involved in the ppeok plus the
     bonus card) must remain on the table."
   - A bonus card is never placed in the field for matching (it has no month) and is captured outright
-    wherever this section sends it.
-  - Not pinned by Wikipedia and still open: how many bonus cards per deck, and their pi value when
-    captured. Confirm against the physical deck in use before implementing; see the open question
-    this raised in conversation.
+    wherever this section sends it — whichever player's capture pile it lands in (the dealer, for
+    the initial-deal case) scores it the same as any other captured card, no different from how a
+    normal capture counts.
+  - Not pinned by Wikipedia, confirmed instead against the physical deck in play: `NUM_BONUS_CARDS`
+    defaults to `3` when enabled, with no fixed limit — real decks range from a few to as many as the
+    players agree on. `BONUS_CARD_PI_VALUE = 2`: a captured bonus card counts toward the pi-count
+    score the same as a ssangpi (double-junk) card, versus 1 for an ordinary junk card. Not to be
+    confused with `PlayerState.bonus_pi_received`/`bonus_pi_paid`, an unrelated existing mechanic
+    (sweep/ttadak penalty payments, section 4/6) that happens to share the word "bonus".
+  - Still open: when a player banks a hand-dealt bonus card for a replacement (the second bullet
+    above), is the replacement a blind draw (as Wikipedia's "draw a card from the draw pile" implies
+    — the player can't see the card first) or a free pick of any specific card in the stock? This
+    changes whether it's an ordinary auto-resolved draw or a new decision that exposes otherwise-
+    hidden deck contents to the picking player, so it's being confirmed before implementing rather
+    than guessed.
   - Not implemented yet because it isn't just an engine change: card ids 0-47 are structural
     throughout (`rl/action_space.py`'s `Discrete(51)`, `rl/obs_encoding.py`'s 48-wide multi-hot
     vectors), so turning this on resizes the action and observation spaces and invalidates every
