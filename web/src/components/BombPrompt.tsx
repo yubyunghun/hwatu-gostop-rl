@@ -17,8 +17,12 @@ export function BombPrompt({ legalOptions, onBomb, onSkip, busy }: BombPromptPro
       <div className="prompt__actions">
         {bombCardIds.map((id) => {
           const month = meta.get(id)?.month;
+          // A bomb option's card always has a real month (bombing needs 3 hand cards of one month,
+          // which a bonus card -- RULES.md #12 -- can never be part of); this is just satisfying the
+          // type checker, not a real runtime case.
+          const disabled = busy || month == null;
           return (
-            <button type="button" key={id} disabled={busy || month === undefined} onClick={() => month !== undefined && onBomb(month)}>
+            <button type="button" key={id} disabled={disabled} onClick={() => month != null && onBomb(month)}>
               Bomb month {month}
             </button>
           );

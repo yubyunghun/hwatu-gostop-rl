@@ -1,5 +1,7 @@
 # 화투 Go-Stop RL
 
+[![CI](https://github.com/yubyunghun/hwatu-gostop-rl/actions/workflows/ci.yml/badge.svg)](https://github.com/yubyunghun/hwatu-gostop-rl/actions/workflows/ci.yml)
+
 A from-scratch implementation of Go-Stop (고스톱), the most popular variant of the Korean card
 game Hwatu (화투), with a self-play reinforcement learning agent trained to play it, served through
 a FastAPI backend to a React web app you can play against.

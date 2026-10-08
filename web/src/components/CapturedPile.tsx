@@ -8,7 +8,7 @@ interface CapturedPileProps {
 
 export function CapturedPile({ cardIds, score }: CapturedPileProps) {
   const meta = useCardMeta();
-  const counts: Record<Category, number> = { gwang: 0, animal: 0, ribbon: 0, junk: 0 };
+  const counts: Record<Category, number> = { gwang: 0, animal: 0, ribbon: 0, junk: 0, bonus: 0 };
   for (const id of cardIds) {
     const cat = meta.get(id)?.category;
     if (cat) counts[cat]++;
@@ -20,6 +20,7 @@ export function CapturedPile({ cardIds, score }: CapturedPileProps) {
         <span className="count count--animal">동 {counts.animal}</span>
         <span className="count count--ribbon">띠 {counts.ribbon}</span>
         <span className="count count--junk">피 {counts.junk}</span>
+        {counts.bonus > 0 && <span className="count count--bonus">보너스 {counts.bonus}</span>}
       </div>
       <div className="captured-pile__score">score: {score}</div>
     </div>
