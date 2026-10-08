@@ -276,7 +276,7 @@ columns shift by a few points between reruns (the vs-heuristic columns are exact
 
 ## Testing
 
-131 pytest tests, including:
+136 pytest tests, including:
 - Full rules coverage (cards, dealing, capture/ppeok/ttadak/bombs, scoring, go/stop/nagari) with
   hand-checked example hands
 - A 100-seed randomized full-hand simulation that checks card conservation and termination on every
@@ -286,6 +286,8 @@ columns shift by a few points between reruns (the vs-heuristic columns are exact
   for the same input, so there's no silent divergence between what's tested and what's trained on
 - Search: sampled worlds conserve all 48 cards, keep everything visible, and provably cannot see hidden
   cards; a search that never deviates reduces exactly to the heuristic
+- Search distillation: parallel dataset generation produces legal, correctly-shaped, seed-reproducible
+  labeled states, and the resulting pipeline trains end to end without crashing
 - First-dealer selection and multi-hand match rotation (winner deals next, nagari keeps the dealer)
 - Bonus cards (off by default, `NUM_BONUS_CARDS = 0`): a 30-seed full-hand fuzz run with 3 bonus cards
   enabled, mirroring the 48-card conservation fuzz test above but for the 51-card case, unit coverage
@@ -321,6 +323,11 @@ from `requirements.txt` plus `torch` from the CPU wheel index — see comments i
 **Clone the heuristic by supervised learning** (the diagnostic above; writes `checkpoints_bc/`):
 ```
 .venv\Scripts\python.exe -m rl.behavior_cloning --games 20000
+```
+
+**Distill search into the network** (parallel dataset generation; writes `checkpoints_distill/`):
+```
+.venv\Scripts\python.exe -m rl.distill_search --games 1500
 ```
 
 **Re-score every run with confidence intervals:**
@@ -371,7 +378,7 @@ rl/        Gym env, action/observation encoding, baselines, self-play PPO traini
 api/       FastAPI session + bot-inference layer
 web/       React + TypeScript frontend
 scripts/   play_cli.py -- terminal play for manual sanity-checking
-tests/     131 pytest tests across all of the above
+tests/     136 pytest tests across all of the above
 checkpoints/  trained model checkpoints (gitignored) + training_log.csv + the curve plot
 ```
 
