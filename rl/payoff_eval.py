@@ -24,6 +24,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MODELS = {
     "cloned heuristic (BC)": "checkpoints_bc/bc_model.zip",
     "BC + PPO fine-tune": "checkpoints_finetune",
+    "distilled search (BC)": "checkpoints_distill/distill_model.zip",
     "PPO from scratch (shaping)": "checkpoints_reward_shaping",
     "PPO from scratch (sparse)": "checkpoints",
 }

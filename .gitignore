@@ -19,4 +19,5 @@ Thumbs.db
 !checkpoints/behavior_analysis.json
 !checkpoints/pilot_search_*.json
 !checkpoints/search_confirm_*.json
+!checkpoints/payoff_eval_with_distill.json
 !checkpoints_distill/distill_report.json

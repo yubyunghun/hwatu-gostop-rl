@@ -33,6 +33,7 @@ MODELS = {
     "heuristic (reference)": None,
     "cloned heuristic (BC)": "checkpoints_bc/bc_model.zip",
     "BC + PPO fine-tune": "checkpoints_finetune",
+    "distilled search (BC)": "checkpoints_distill/distill_model.zip",
     "PPO from scratch (shaping)": "checkpoints_reward_shaping",
 }
 

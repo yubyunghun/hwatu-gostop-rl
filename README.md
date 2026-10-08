@@ -83,7 +83,9 @@ card play, and it is specific to how this game's payoffs work (details below). T
 greedy rule (take the most valuable capture available, always bomb, stop at a score/deck threshold),
 so matching it is a real bar, not a strawman.
 Search on top of the same heuristic is the one method here that beats it at card play (+2.4 points per
-game and about 7 more wins per 100 hands with card-play search alone; see the last subsection).
+game and about 7 more wins per 100 hands with card-play search alone), and distilling search into the
+network produces the highest win rate of any model tried, via sharper go/stop judgment rather than
+cleaner mechanics (see the last two subsections).
 
 ![Final evaluation](checkpoints/final_eval.png)
 
@@ -273,6 +275,64 @@ Caveats that matter:
 
 Known evaluation caveat: the random opponent draws from an unseeded generator, so the vs-random
 columns shift by a few points between reruns (the vs-heuristic columns are exactly reproducible).
+
+### Distilling search into the network
+
+Search beats the heuristic but costs a rollout per legal action at every decision. The natural next
+question: can a plain feedforward network (the same architecture as the heuristic clone) absorb enough
+of that into a single forward pass to be worth serving on its own? `rl/distill_search.py` answers it the
+same way the heuristic clone did -- supervised learning against a teacher -- except the teacher is now
+`SearchPolicy` instead of the heuristic, and labeling is far more expensive (every label is itself a
+small search), so the dataset (1500 train / 200 validation games, 25 sampled worlds per label instead of
+the 60 used to evaluate search's own strength above -- a deliberate speed tradeoff) took 35 minutes to
+generate across 10 parallel worker processes, producing about 30,000 labeled states versus the
+heuristic clone's 400,000.
+
+**It learned the teacher less exactly than the heuristic clone did, and overfit doing it.** Agreement
+with search peaked at epoch 5 (66.8%) and then *declined* to 63.4% by epoch 20 while training loss kept
+dropping -- the model saved is the epoch-20 one, not the epoch-5 peak, since there's no early-stopping
+or best-checkpoint logic yet. That's a real gap from the heuristic clone's clean 95.9%, and the honest
+reading is that search's decisions -- the output of noisy sampled rollouts near an indifference
+threshold -- are a harder target than a hand-written deterministic rule, on a third as much data.
+
+**But it's the strongest model by win rate anyway.** Evaluated the same way as every other model above
+(1000 deals, `rl.payoff_eval`):
+
+| Model | Win rate vs. heuristic | Paired payoff vs. heuristic |
+|---|---|---|
+| heuristic vs. itself | 39.4% [36.4, 42.5] | n/a |
+| cloned heuristic | 39.1% [36.1, 42.2] | -0.149 [-0.525, +0.227] |
+| cloning + PPO fine-tune | 39.1% [36.1, 42.2] | **+3.71** [+2.06, +5.36] |
+| **distilled search** | **42.9%** [39.9, 46.0] | **+3.51** [+2.07, +4.96] |
+
+Its payoff edge is statistically indistinguishable from the fine-tuned PPO model's (the two intervals
+overlap almost entirely). Its win rate is the highest of any model tried, though the interval overlaps
+the fine-tune's narrowly -- not a clean separation at 1000 games, but the clearest signal so far that a
+model can win *more often*, not just win bigger.
+
+**Where the edge comes from is a different shape than the PPO fine-tune's.** Decision-level analysis
+(`python -m rl.analyze_behavior`, 300 games) says the distilled model is mechanically worse than the
+heuristic clone -- it misses an available capture 3.9% of the time (clone: 0%), picks a suboptimal
+capture 13.9% of the time (clone: 1.3%), and skips a free bomb 25.5% of the time (clone: 0%). What it
+does better is judgment, not mechanics: it presses Go more than the heuristic (87.8% vs. 82.5% when it
+qualifies) *and* wins those hands more often when it does (93.8%, versus 86.5% for the heuristic, 89.4%
+for the clone, and 85.3% for the PPO fine-tune, which goes on 99.4% of the time regardless of position).
+The fine-tuned model's edge was "go almost always"; this one looks more like "go more selectively, and
+be right about it more often" -- inherited, presumably, from search actually evaluating the position
+instead of applying a fixed threshold, even though the student never gets to run search itself.
+
+Caveats, same standard as the rest of this section:
+- The teacher here (25 sampled worlds) is weaker than the one the published search numbers above used
+  (60), so this isn't quite "how much of search's measured edge survived distillation" -- it's "how much
+  of a slightly weaker search's edge survived."
+- No early stopping: the epoch-5 checkpoint had better teacher agreement than epoch 20's, and I don't
+  know whether it would also have had better play strength -- that's an untested, cheap follow-up.
+- 30,000 states is a small dataset by this project's own standard (the heuristic clone used ~400,000);
+  more games would likely help and is mostly a matter of compute time, not a design change.
+
+Raw numbers: `checkpoints_distill/distill_report.json`, `checkpoints/payoff_eval_with_distill.json`,
+`checkpoints/behavior_analysis.json` (`python -m rl.distill_search`, `python -m rl.payoff_eval`,
+`python -m rl.analyze_behavior`).
 
 ## Testing
 
