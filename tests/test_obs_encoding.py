@@ -43,11 +43,14 @@ def test_unseen_excludes_hand_field_and_both_captured_piles():
 
 
 def test_decision_node_onehot_and_bomb_flag_present():
+    from rl.obs_encoding import _DECISION_NODES
+
     engine = make_engine(hands=[{M5_ANIMAL, M5_RIBBON, M5_PI_A}, set()], field_ids=[M5_PI_B])
     obs = encode(engine)
     decision_offset = 48 * 5 + 6
-    assert obs[decision_offset:decision_offset + 3].sum() == 1.0  # exactly one decision node active
-    bomb_flag_index = decision_offset + 3
+    n = len(_DECISION_NODES)  # PLAY_CARD, BOMB_DECISION, CAPTURE_CHOICE, GO_STOP
+    assert obs[decision_offset:decision_offset + n].sum() == 1.0  # exactly one decision node active
+    bomb_flag_index = decision_offset + n
     # available_bombs() reflects hand/field shape alone, independent of which
     # decision node happens to be pending -- 3-in-hand + 1-on-field qualifies here.
     assert obs[bomb_flag_index] == 1.0

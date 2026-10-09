@@ -16,12 +16,11 @@ REDEAL_ON_DEGENERATE_FIELD = True
 # highest-ranked card); "night" favors the earliest month (and the lowest-ranked card on a tie).
 FIRST_DEALER_TIME_OF_DAY = "day"
 
-# Section 4/5/6/7: capture bonuses (RULES.md #4-7)
+# Section 4/5/7: capture bonuses (RULES.md #4/5/7). Section 6 (ttadak) was retired -- see RULES.md
+# #6 for why; it only ever existed because of the capture-resolution bug fixed in #4.
 SWEEP_BONUS_PI = 1
 PPEOK_RULESET = "LOCK_AND_PENALTY"
 PPEOK_PENALTY_PI = 1
-TTADAK_BONUS_MODE = "SAME_TURN_DOUBLE_CAPTURE"
-TTADAK_PENALTY_PI = 1
 BOMB_MODE = "THREE_IN_HAND_PLUS_FIELD"
 BOMB_PENALTY_PI = 1
 

@@ -163,12 +163,10 @@ def test_resolve_draw_of_a_bonus_card_resolves_a_pending_pair_as_a_non_match_fir
         state = GameState(num_players=2, deck=[], field={1: [0, 2]}, players=[PlayerState(), PlayerState()],
                             turn=0, dealer=0)
         state.pending_pair = (0, 2)  # hand card 0 (January) matched field card 2 (January)
-        state.ttadak_watch_month = 1
 
         resolve_draw(state, player=0, drawn_card_id=48)
 
         assert state.pending_pair is None
-        assert state.ttadak_watch_month is None
         assert sorted(state.players[0].captured) == [0, 2, 48]  # the pair, plus the bonus card
         assert state.field == {}
 
@@ -349,6 +347,9 @@ def test_full_hand_with_bonus_cards_conserves_all_51_cards_and_terminates():
                 elif decision == DecisionNode.PLAY_CARD:
                     hand = sorted(engine.state.players[engine.state.turn].hand)
                     engine.play_card(rng.choice(hand))
+                elif decision == DecisionNode.CAPTURE_CHOICE:
+                    candidates = engine.state.pending_capture_choice[1]
+                    engine.choose_capture(rng.choice(candidates))
                 elif decision == DecisionNode.GO_STOP:
                     engine.go() if rng.random() < 0.5 else engine.stop()
                 else:

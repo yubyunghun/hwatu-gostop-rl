@@ -6,11 +6,11 @@ training and in production.
   - PLAY_CARD: play this card from hand.
   - BOMB_DECISION: declare a bomb for this card's month (the specific id used is
     arbitrary -- any hand card of that month -- since the mask picks a canonical one).
-Note there is no separate CAPTURE_CHOICE node: this engine's capture resolution is
-fully deterministic given the played/drawn card (see RULES.md section 4), so unlike
-some fishing-card games there is never a genuine multi-way capture choice to encode.
-A bonus card id (RULES.md #12), if any exist, is never legal at either of the two nodes above -- it's
-always resolved out of a hand before PLAY_CARD/BOMB_DECISION is reached (GoStopEngine._resolve_bonus_cards_in_hand).
+  - CAPTURE_CHOICE: pair with this field card (one of exactly 2 same-month candidates --
+    RULES.md #4). No separate action range needed; the two legal ids are already real card ids.
+A bonus card id (RULES.md #12), if any exist, is never legal at any of the three nodes above -- it's
+always resolved out of a hand before PLAY_CARD/BOMB_DECISION is reached (GoStopEngine._resolve_bonus_cards_in_hand),
+and a bonus card is never placed in the field so it can never be a capture-choice candidate either.
 NUM_CARDS: SKIP -- decline an available bomb.
 NUM_CARDS + 1: GO.
 NUM_CARDS + 2: STOP.
@@ -51,6 +51,9 @@ def legal_action_mask(engine: GoStopEngine) -> np.ndarray:
         for month in engine.available_bombs():
             mask[_month_action_id(engine, month)] = True
         mask[SKIP] = True
+    elif decision == DecisionNode.CAPTURE_CHOICE:
+        for cid in s.pending_capture_choice[1]:
+            mask[cid] = True
     elif decision == DecisionNode.GO_STOP:
         mask[GO] = True
         mask[STOP] = True
@@ -70,6 +73,8 @@ def apply_action(engine: GoStopEngine, action: int) -> None:
             engine.declare_bomb(month_of(action))
         else:
             raise ValueError(f"illegal action {action} for BOMB_DECISION")
+    elif decision == DecisionNode.CAPTURE_CHOICE:
+        engine.choose_capture(action)
     elif decision == DecisionNode.GO_STOP:
         if action == GO:
             engine.go()

@@ -33,7 +33,7 @@ export interface ResultOut {
   nagari: boolean;
 }
 
-export type PendingDecision = "PLAY_CARD" | "BOMB_DECISION" | "GO_STOP" | "HAND_OVER";
+export type PendingDecision = "PLAY_CARD" | "BOMB_DECISION" | "CAPTURE_CHOICE" | "GO_STOP" | "HAND_OVER";
 
 export interface GameStateOut {
   session_id: string;
@@ -54,5 +54,6 @@ export type ActionRequest =
   | { type: "play_card"; card_id: number }
   | { type: "declare_bomb"; month: number }
   | { type: "skip_bomb" }
+  | { type: "choose_capture"; card_id: number }
   | { type: "go" }
   | { type: "stop" };

@@ -28,6 +28,7 @@ import numpy as np
 import torch
 
 from engine.engine import GoStopEngine
+from engine.state import DecisionNode
 from rl.action_space import apply_action, legal_action_mask
 from rl.baselines.heuristic_agent import heuristic_policy
 from rl.baselines.random_agent import random_policy
@@ -37,7 +38,9 @@ from rl.model_agent import make_model_policy
 from rl.obs_encoding import encode
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DECISION_NAMES = {1: "PLAY_CARD", 2: "BOMB_DECISION", 3: "GO_STOP"}
+# Keyed by the enum's own .value so adding/reordering DecisionNode members (e.g. CAPTURE_CHOICE,
+# RULES.md #4) can't silently desync this from the real values the way a hardcoded dict would.
+DECISION_NAMES = {d.value: d.name for d in DecisionNode if d not in (DecisionNode.HAND_OVER,)}
 MAX_STEPS_PER_GAME = 500
 
 

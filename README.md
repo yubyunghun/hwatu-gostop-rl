@@ -10,7 +10,7 @@ a FastAPI backend to a React web app you can play against.
 
 ## Why this project
 
-Go-Stop is a real imperfect-information game with nontrivial rules (bombs, ppeok, ttadak, sweeps,
+Go-Stop is a real imperfect-information game with nontrivial rules (bombs, ppeok, sweeps,
 a go/stop risk decision, several scoring categories with multipliers) — enough structure to be a
 genuine reinforcement learning problem, not a toy. The goal was to build the whole stack end to
 end: a correctness-first rules engine, an RL training pipeline with a real evaluation methodology,
@@ -19,7 +19,7 @@ and a servable product, rather than just a notebook that trains a model once.
 ## Architecture
 
 ```
-engine/   pure-Python rules engine (cards, dealing, capture/ppeok/ttadak/bomb resolution,
+engine/   pure-Python rules engine (cards, dealing, capture/ppeok/bomb resolution,
           scoring, go/stop flow) -- no RL or web dependencies at all
    ^  ^
    |  |
@@ -44,7 +44,7 @@ explicitly before writing any code.
 ## The rules
 
 Go-Stop has real regional/house-rule variation. [RULES.md](RULES.md) pins every rule this engine
-implements — deck composition, capture resolution, ppeok, ttadak, bombs, scoring, gwang-bak/
+implements — deck composition, capture resolution, ppeok, bombs, scoring, gwang-bak/
 pi-bak/meong-bak multipliers, go/stop/gobak, nagari — against sourced references, with worked
 reasoning for the genuinely contested ones (ppeok sequencing especially). Every constant lives in
 `engine/rules_config.py`, never hardcoded inline.
@@ -165,7 +165,7 @@ narrow one, and worth stating plainly:
 
 ### Corrections
 
-Two things I got wrong and fixed, kept here because they change how much to trust the numbers.
+Three things I got wrong and fixed, kept here because they change how much to trust the numbers.
 
 1. **Training-time curves are too noisy to read.** They log 30 games per checkpoint, roughly +/-8
    points. An earlier version of this write-up read them as showing that reward shaping "helped in
@@ -181,6 +181,22 @@ Two things I got wrong and fixed, kept here because they change how much to trus
    models were unaffected (they shared the bias) but absolute rates moved several points, for example
    the heuristic against itself went from 43.7% to 37.3%. The payoff result was found after the win-rate
    comparison came up flat, so it is exploratory; that is why it was re-tested on a fresh seed.
+3. **The capture rule for matching 2 field cards was wrong, and every number above was produced
+   against the wrong version.** A hand card or forced draw matching 2 same-month field cards used
+   to auto-capture all 3 immediately. A user who actually plays this game pointed out that's not
+   how it works: you choose which one to pair with, and the other stays on the field. Checking it
+   against pagat (this project's primary source) confirmed the user was right -- the old behavior
+   happened to match a different source (gostopguide) that disagrees with pagat here, which is how
+   it got built that way without anyone (including me) noticing it was a real choice, not a
+   citation I'd actually checked. Fixed in `engine/capture.py`/`engine/engine.py` as a real decision
+   node (`CAPTURE_CHOICE`), which also meant retiring the "ttadak" bonus entirely, since it only
+   ever existed as a side effect of the old (wrong) auto-capture behavior -- see RULES.md #4/#6.
+   This is a rules-correctness fix, not an evaluation-methodology one, and it changes the actual
+   game every model above was trained and measured against. It doesn't make the comparisons
+   between those models meaningless (they were all measured consistently against each other, on
+   the same engine), but none of the numbers above are "real Go-Stop" numbers in the way the rest
+   of this README implies, and retraining/re-evaluating against the corrected engine is a planned
+   follow-up, not yet done as of this fix.
 
 The training-time logs in `checkpoints*/training_log.csv` still carry the old bias (they were written
 before the fix), which does not matter for how they are used here: as noisy monitoring only.
@@ -336,9 +352,11 @@ Raw numbers: `checkpoints_distill/distill_report.json`, `checkpoints/payoff_eval
 
 ## Testing
 
-136 pytest tests, including:
-- Full rules coverage (cards, dealing, capture/ppeok/ttadak/bombs, scoring, go/stop/nagari) with
-  hand-checked example hands
+148 pytest tests, including:
+- Full rules coverage (cards, dealing, capture/ppeok/bombs, scoring, go/stop/nagari) with
+  hand-checked example hands, including engine-level (not just unit-level) coverage of the
+  capture-choice decision -- both halves of a turn independently triggering it, the illegal-target
+  rejection, and a bomb's forced draw triggering one too
 - A 100-seed randomized full-hand simulation that checks card conservation and termination on every
   run — this is what caught a real bug (bombs can empty a hand before the opponent's, which the
   turn loop didn't originally handle) before any ML code ever touched the engine
@@ -438,7 +456,7 @@ rl/        Gym env, action/observation encoding, baselines, self-play PPO traini
 api/       FastAPI session + bot-inference layer
 web/       React + TypeScript frontend
 scripts/   play_cli.py -- terminal play for manual sanity-checking
-tests/     136 pytest tests across all of the above
+tests/     148 pytest tests across all of the above
 checkpoints/  trained model checkpoints (gitignored) + training_log.csv + the curve plot
 ```
 

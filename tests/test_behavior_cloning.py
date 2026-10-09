@@ -1,7 +1,10 @@
 import numpy as np
 
+from engine.state import DecisionNode
 from rl.behavior_cloning import _accuracy, generate_dataset, train_bc
 from rl.obs_encoding import OBS_SIZE
+
+_LABELED_DECISION_VALUES = {d.value for d in DecisionNode if d is not DecisionNode.HAND_OVER}
 
 
 def test_dataset_shapes_and_label_legality():
@@ -10,7 +13,7 @@ def test_dataset_shapes_and_label_legality():
     assert n > 0
     assert data["obs"].shape == (n, OBS_SIZE)
     assert data["masks"].shape == (n, 51)
-    assert set(np.unique(data["decisions"])) <= {1, 2, 3}
+    assert set(np.unique(data["decisions"])) <= _LABELED_DECISION_VALUES
     # Every label must be a legal action in the state it was recorded in.
     assert data["masks"][np.arange(n), data["actions"]].all()
 

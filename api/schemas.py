@@ -57,6 +57,6 @@ class CreateSessionRequest(BaseModel):
 
 
 class ActionRequest(BaseModel):
-    type: str  # "play_card" | "declare_bomb" | "skip_bomb" | "go" | "stop"
-    card_id: int | None = None
+    type: str  # "play_card" | "declare_bomb" | "skip_bomb" | "choose_capture" | "go" | "stop"
+    card_id: int | None = None  # also used for choose_capture: the field card to pair with
     month: int | None = None

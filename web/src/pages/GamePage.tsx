@@ -1,4 +1,5 @@
 import { BombPrompt } from "../components/BombPrompt";
+import { CaptureChoicePrompt } from "../components/CaptureChoicePrompt";
 import { Field } from "../components/Field";
 import { GameLog } from "../components/GameLog";
 import { GoStopPrompt } from "../components/GoStopPrompt";
@@ -45,6 +46,13 @@ export function GamePage() {
           busy={busy}
           onBomb={(month) => act({ type: "declare_bomb", month })}
           onSkip={() => act({ type: "skip_bomb" })}
+        />
+      )}
+      {isMyTurn && state.pending_decision === "CAPTURE_CHOICE" && (
+        <CaptureChoicePrompt
+          legalOptions={state.legal_options}
+          busy={busy}
+          onChoose={(cardId) => act({ type: "choose_capture", card_id: cardId })}
         />
       )}
       {isMyTurn && state.pending_decision === "GO_STOP" && (

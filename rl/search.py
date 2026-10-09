@@ -39,8 +39,9 @@ MAX_ROLLOUT_STEPS = 500
 # Which decision nodes search is allowed to override the base policy on. Restricting it isolates
 # where any gain comes from: better card play, or just a better go/stop rule.
 SEARCHED_NODES = {
-    "all": {DecisionNode.PLAY_CARD, DecisionNode.BOMB_DECISION, DecisionNode.GO_STOP},
-    "play": {DecisionNode.PLAY_CARD},
+    "all": {DecisionNode.PLAY_CARD, DecisionNode.BOMB_DECISION, DecisionNode.CAPTURE_CHOICE,
+            DecisionNode.GO_STOP},
+    "play": {DecisionNode.PLAY_CARD, DecisionNode.CAPTURE_CHOICE},
     "gostop": {DecisionNode.GO_STOP},
 }
 

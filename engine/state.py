@@ -8,6 +8,7 @@ from enum import Enum, auto
 class DecisionNode(Enum):
     PLAY_CARD = auto()
     BOMB_DECISION = auto()
+    CAPTURE_CHOICE = auto()  # hand card matched 2 same-month field cards; pick which one to pair with
     GO_STOP = auto()
     HAND_OVER = auto()
 
@@ -17,7 +18,6 @@ class EventType(Enum):
     CAPTURE = auto()
     SWEEP = auto()
     PPEOK_LOCK = auto()
-    TTADAK = auto()
     BOMB = auto()
     GO = auto()
     STOP = auto()
@@ -65,7 +65,13 @@ class GameState:
     result: HandResult | None = None
     scoring_player: int | None = None  # whose GO_STOP decision is currently pending
     pending_pair: tuple[int, int] | None = None  # (hand_card_id, field_card_id) awaiting draw resolution for ppeok check
-    ttadak_watch_month: int | None = None  # month just fully captured (3 cards) via hand-play this turn
+    # Set when a hand-play OR the forced draw matched 2 same-month field cards:
+    # (played_card_id, (candidate_1, candidate_2)), awaiting a CAPTURE_CHOICE decision for which
+    # candidate to pair with (RULES.md #4). capture_choice_after_draw distinguishes which turn phase
+    # to resume once it resolves: the forced draw still needs to happen (False) or already happened
+    # and only the end-of-turn bookkeeping is left (True) -- see GoStopEngine.choose_capture.
+    pending_capture_choice: tuple[int, tuple[int, int]] | None = None
+    capture_choice_after_draw: bool = False
 
     def opponents(self, player: int) -> list[int]:
         return [p for p in range(self.num_players) if p != player]

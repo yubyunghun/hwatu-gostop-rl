@@ -1,11 +1,14 @@
 import numpy as np
 
+from engine.state import DecisionNode
 from rl.behavior_cloning import _accuracy, train_bc
 from rl.distill_search import generate_dataset
 from rl.obs_encoding import OBS_SIZE
 
 # Kept tiny everywhere (games, determinizations, workers) -- search is far more expensive per label
 # than the heuristic, so these are smoke tests of the pipeline's correctness, not of search quality.
+
+_LABELED_DECISION_VALUES = {d.value for d in DecisionNode if d is not DecisionNode.HAND_OVER}
 
 
 def test_dataset_shapes_and_label_legality():
@@ -15,7 +18,7 @@ def test_dataset_shapes_and_label_legality():
     assert n > 0
     assert data["obs"].shape == (n, OBS_SIZE)
     assert data["masks"].shape[0] == n
-    assert set(np.unique(data["decisions"])) <= {1, 2, 3}
+    assert set(np.unique(data["decisions"])) <= _LABELED_DECISION_VALUES
     # Every label must be a legal action in the state it was recorded in.
     assert data["masks"][np.arange(n), data["actions"]].all()
 

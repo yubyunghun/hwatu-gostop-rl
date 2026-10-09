@@ -1,6 +1,6 @@
 """End-to-end sanity check: drive full hands through GoStopEngine with simple
 deterministic policies and assert the invariants that must hold no matter what
-sequence of bombs/ppeoks/ttadaks/sweeps/go-stops occurred -- card conservation
+sequence of bombs/ppeoks/capture-choices/sweeps/go-stops occurred -- card conservation
 above all. Exact point totals for specific real-game example hands are pinned
 instead at the unit level in test_scoring.py, against RULES.md section 8."""
 
@@ -40,6 +40,9 @@ def _play_one_full_hand(seed: int) -> GoStopEngine:
         elif decision == DecisionNode.PLAY_CARD:
             hand = sorted(engine.state.players[engine.state.turn].hand)
             engine.play_card(rng.choice(hand))
+        elif decision == DecisionNode.CAPTURE_CHOICE:
+            candidates = engine.state.pending_capture_choice[1]
+            engine.choose_capture(rng.choice(candidates))
         elif decision == DecisionNode.GO_STOP:
             if rng.random() < 0.5:
                 engine.go()

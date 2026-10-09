@@ -5,7 +5,6 @@ const LABEL: Record<string, string> = {
   CAPTURE: "captured",
   SWEEP: "swept the field! +pi",
   PPEOK_LOCK: "ppeok! cards locked on field",
-  TTADAK: "ttadak! +pi",
   BOMB: "bomb!",
   GO: "called GO",
   STOP: "called STOP",

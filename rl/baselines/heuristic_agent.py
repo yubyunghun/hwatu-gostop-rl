@@ -41,6 +41,15 @@ def _choose_play_card(engine: GoStopEngine) -> int:
     return best_card
 
 
+def _choose_capture_target(engine: GoStopEngine) -> int:
+    """Which of 2 same-month field cards to pair with (RULES.md #4). The unchosen one just sits on
+    the field afterward -- available to either player next, including as a bomb target for an
+    opponent holding 3 of that month -- so pair with the more valuable one and leave the less
+    valuable one at risk, not the other way around."""
+    candidates = engine.state.pending_capture_choice[1]
+    return max(candidates, key=_card_value)
+
+
 def _choose_bomb(engine: GoStopEngine) -> int | None:
     bombs = engine.available_bombs()
     return bombs[0] if bombs else None
@@ -69,6 +78,8 @@ def heuristic_policy(engine: GoStopEngine, legal_actions: np.ndarray) -> int:
             return SKIP
         hand = engine.state.players[engine.state.turn].hand
         return min(cid for cid in hand if month_of(cid) == month)
+    if decision == DecisionNode.CAPTURE_CHOICE:
+        return _choose_capture_target(engine)
     if decision == DecisionNode.GO_STOP:
         return _choose_go_stop(engine)
     raise ValueError(f"heuristic_policy called with no legal decision: {decision}")

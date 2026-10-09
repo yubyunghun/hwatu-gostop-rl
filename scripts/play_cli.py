@@ -70,6 +70,12 @@ def main() -> None:
             hand = sorted(engine.state.players[turn].hand)
             choice = prompt_int(f"P{turn}: play which card?", hand)
             engine.play_card(choice)
+        elif decision == DecisionNode.CAPTURE_CHOICE:
+            candidates = sorted(engine.state.pending_capture_choice[1])
+            print(f"P{turn}: matches 2 field cards of this month. "
+                  f"Which one do you pair with? ({', '.join(describe(c) for c in candidates)})")
+            choice = prompt_int("Pair with", candidates)
+            engine.choose_capture(choice)
         elif decision == DecisionNode.GO_STOP:
             print(f"P{turn} has reached the scoring threshold. 1 = GO, 0 = STOP")
             choice = prompt_int("Go or stop?", [0, 1])

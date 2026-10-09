@@ -1,16 +1,26 @@
 """Capture resolution for a hand-play followed by its forced deck draw.
 
-See RULES.md sections 4-6 for the mechanics this encodes. The subtle part is that a
-hand-play matching exactly 1 field card is *not* finalized immediately -- it is held
-as `state.pending_pair` until the following draw is known, because if that draw is
-also the same month the whole trio locks as a ppeok pile instead of being captured
-(section 5). A hand-play matching exactly 2 field cards *does* finalize immediately,
-but marks `state.ttadak_watch_month` so the draw can be checked for ttadak (section 6).
+See RULES.md sections 4-5 for the mechanics this encodes. A hand-play matching exactly 1 field
+card is *not* finalized immediately -- it is held as `state.pending_pair` until the following draw
+is known, because if that draw is also the same month the whole trio locks as a ppeok pile instead
+of being captured (section 5).
+
+A played/drawn card matching exactly 2 field cards is *also* not finalized immediately and does not
+auto-capture both: per RULES.md #4 (pagat), the player chooses which of the two to pair with --
+`state.pending_capture_choice` holds the card and both candidates until a CAPTURE_CHOICE decision
+resolves it (`resolve_capture_choice`), at which point it becomes an ordinary `pending_pair` exactly
+like the 1-match case, except `state.field[month]` already has 3 cards in it (the played/drawn card
+plus both original field cards) instead of 2 -- that's how `resolve_draw` tells the two cases
+apart: if the next card to touch that month also matches, a 2-card pending pair locks as a 3-card
+ppeok, but a 3-card one captures all 4 immediately (there's no partial pile left to resolve later).
+This can happen on either half of a turn -- the hand-play or the forced draw that follows it -- so
+GoStopEngine pauses turn resolution at whichever point it comes up
+(`state.capture_choice_after_draw` records which, for where to resume once it's answered).
 """
 
 from engine.cards import Category, card, month_of
-from engine.rules_config import PPEOK_PENALTY_PI, SWEEP_BONUS_PI, TTADAK_PENALTY_PI
-from engine.state import Event, EventType, GameState
+from engine.rules_config import PPEOK_PENALTY_PI, SWEEP_BONUS_PI
+from engine.state import DecisionNode, Event, EventType, GameState
 
 
 def _pay_penalty(state: GameState, causer: int, pi_per_opponent: int) -> None:
@@ -66,12 +76,39 @@ def resolve_hand_play(state: GameState, player: int, card_id: int) -> None:
         state.field[month] = pile + [card_id]
         state.pending_pair = (card_id, pile[0])
     elif len(pile) == 2:
-        _remove_from_field(state, month, pile)
-        finalize_capture(state, player, pile + [card_id], EventType.CAPTURE)
-        state.ttadak_watch_month = month
+        # Deferred differently: place the card (now 3 of this month sit together) and ask which of
+        # the two original field cards it pairs with -- see resolve_capture_choice.
+        state.field[month] = pile + [card_id]
+        state.pending_capture_choice = (card_id, (pile[0], pile[1]))
+        state.pending_decision = DecisionNode.CAPTURE_CHOICE
+        state.capture_choice_after_draw = False
     else:  # len(pile) == 3: completing a locked ppeok/degenerate pile
         _remove_from_field(state, month, pile)
         finalize_capture(state, player, pile + [card_id], EventType.CAPTURE)
+
+
+def resolve_capture_choice(state: GameState, player: int, chosen_field_card_id: int) -> None:
+    """Resolves a pending CAPTURE_CHOICE: pairs the played/drawn card (set aside in
+    pending_capture_choice) with the chosen field card. The unchosen one is left exactly where it
+    already is in state.field[month] -- RULES.md #4, quoting pagat: "you can choose on which one you
+    will place your played card"; the rules don't say the other one goes anywhere, so it doesn't.
+
+    What happens to the resulting pair differs by which half of the turn this choice came from:
+    - From the hand-play (capture_choice_after_draw=False): defer it as an ordinary pending_pair,
+      same as the 1-match case, because the forced draw that's about to happen still needs checking
+      for a ppeok or a 4-card sweep.
+    - From the forced draw (capture_choice_after_draw=True): there's no further draw left this turn
+      to wait on, so the pair captures immediately."""
+    played_card_id, candidates = state.pending_capture_choice
+    if chosen_field_card_id not in candidates:
+        raise ValueError(f"{chosen_field_card_id} is not a legal capture-choice target "
+                          f"(candidates were {candidates})")
+    state.pending_capture_choice = None
+    if state.capture_choice_after_draw:
+        _remove_from_field(state, month_of(played_card_id), [played_card_id, chosen_field_card_id])
+        finalize_capture(state, player, [played_card_id, chosen_field_card_id], EventType.CAPTURE)
+    else:
+        state.pending_pair = (played_card_id, chosen_field_card_id)
 
 
 def _resolve_bonus_draw(state: GameState, player: int, drawn_card_id: int) -> None:
@@ -83,13 +120,12 @@ def _resolve_bonus_draw(state: GameState, player: int, drawn_card_id: int) -> No
         _remove_from_field(state, month_of(hand_card_id), [hand_card_id, field_card_id])
         finalize_capture(state, player, [hand_card_id, field_card_id], EventType.CAPTURE)
         state.pending_pair = None
-    state.ttadak_watch_month = None
     state.players[player].captured.append(drawn_card_id)
     state.emit(Event(EventType.BONUS_CARD, player, (drawn_card_id,)))
 
 
 def resolve_draw(state: GameState, player: int, drawn_card_id: int) -> None:
-    """Resolves the forced post-play deck draw, including any pending ppeok/ttadak check."""
+    """Resolves the forced post-play deck draw, including any pending ppeok check."""
     if card(drawn_card_id).category is Category.BONUS:
         _resolve_bonus_draw(state, player, drawn_card_id)
         return
@@ -99,12 +135,20 @@ def resolve_draw(state: GameState, player: int, drawn_card_id: int) -> None:
     if state.pending_pair is not None:
         pending_month = month_of(state.pending_pair[0])
         if month == pending_month:
-            # Ppeok: lock the trio (already sitting in state.field[month]) plus this draw.
-            state.field[pending_month] = state.field[pending_month] + [drawn_card_id]
-            causer = player
-            state.emit(Event(EventType.PPEOK_LOCK, causer, tuple(state.field[pending_month]),
-                              pi_penalty=PPEOK_PENALTY_PI))
-            _pay_penalty(state, causer, PPEOK_PENALTY_PI)
+            already_there = state.field[pending_month]
+            if len(already_there) >= 3:
+                # Came from a CAPTURE_CHOICE (RULES.md #4): all 3 of this month plus the draw makes
+                # 4 -- a straight capture, not a ppeok lock (pagat: "you capture all four cards of
+                # this month"). The card left unchosen earlier gets swept up here after all.
+                captured_ids = list(already_there) + [drawn_card_id]
+                _remove_from_field(state, pending_month, list(already_there))
+                finalize_capture(state, player, captured_ids, EventType.CAPTURE)
+            else:
+                # Ppeok: lock the trio (already sitting in state.field[month]) plus this draw.
+                state.field[pending_month] = already_there + [drawn_card_id]
+                state.emit(Event(EventType.PPEOK_LOCK, player, tuple(state.field[pending_month]),
+                                  pi_penalty=PPEOK_PENALTY_PI))
+                _pay_penalty(state, player, PPEOK_PENALTY_PI)
             state.pending_pair = None
             return
         else:
@@ -114,16 +158,17 @@ def resolve_draw(state: GameState, player: int, drawn_card_id: int) -> None:
             state.pending_pair = None
             # fall through to resolve the draw itself below
 
-    if state.ttadak_watch_month is not None and month == state.ttadak_watch_month:
-        state.ttadak_watch_month = None
-        finalize_capture(state, player, [drawn_card_id], EventType.TTADAK, pi_per_opponent=TTADAK_PENALTY_PI)
-        return
-    state.ttadak_watch_month = None
-
     pile = list(state.field.get(month, []))
     if len(pile) == 0:
         state.field.setdefault(month, []).append(drawn_card_id)
         state.emit(Event(EventType.FIELD_ADD, player, (drawn_card_id,)))
-    elif len(pile) in (1, 2, 3):
+    elif len(pile) == 2:
+        # Same choice as a hand-play matching 2 (RULES.md #4) -- the drawn card is just as much a
+        # single card being placed against the layout as a played one is.
+        state.field[month] = pile + [drawn_card_id]
+        state.pending_capture_choice = (drawn_card_id, (pile[0], pile[1]))
+        state.pending_decision = DecisionNode.CAPTURE_CHOICE
+        state.capture_choice_after_draw = True
+    elif len(pile) in (1, 3):
         _remove_from_field(state, month, pile)
         finalize_capture(state, player, pile + [drawn_card_id], EventType.CAPTURE)

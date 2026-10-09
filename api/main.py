@@ -54,6 +54,10 @@ def _apply_human_action(session: Session, req: ActionRequest) -> None:
             if decision != DecisionNode.BOMB_DECISION:
                 raise HTTPException(400, "skip_bomb is not valid for the current decision")
             engine.skip_bomb()
+        elif req.type == "choose_capture":
+            if decision != DecisionNode.CAPTURE_CHOICE or req.card_id is None:
+                raise HTTPException(400, "choose_capture is not valid for the current decision")
+            engine.choose_capture(req.card_id)
         elif req.type == "go":
             if decision != DecisionNode.GO_STOP:
                 raise HTTPException(400, "go is not valid for the current decision")

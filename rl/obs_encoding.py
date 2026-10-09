@@ -17,7 +17,8 @@ DECK_NORM = 22.0
 HAND_NORM = 10.0
 SCORE_NORM = 20.0
 
-_DECISION_NODES = (DecisionNode.PLAY_CARD, DecisionNode.BOMB_DECISION, DecisionNode.GO_STOP)
+_DECISION_NODES = (DecisionNode.PLAY_CARD, DecisionNode.BOMB_DECISION, DecisionNode.CAPTURE_CHOICE,
+                   DecisionNode.GO_STOP)
 
 NUM_SCALARS = 6
 # At the default NUM_BONUS_CARDS = 0, NUM_CARDS is 48, so this is the same size as always and every

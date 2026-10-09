@@ -80,15 +80,43 @@ Each turn: play one hand card -> resolve its capture -> draw one card from the d
 capture -> (if applicable) offer GO_STOP decision -> pass turn. A bomb declaration replaces "play
 one hand card" but the forced deck-draw-and-resolve step still happens afterward.
 
+Either resolution step ("resolve its capture") can itself pause the turn for a CAPTURE_CHOICE
+decision (section 4) if the card in question matches 2 same-month field cards -- in principle both
+steps could pause in the same turn, once each, since the hand-play and the draw land on
+independent months. `GoStopEngine` resumes exactly where it left off once the choice is answered
+(`choose_capture`), rather than re-running anything.
+
 ## 4. Capture resolution (`capture.py`)
 
 - Played/drawn card matches **0** field cards of its month -> card is added to the field.
-- Matches **exactly 1** field card -> capture both (they move to the player's captured pile).
-- Matches **2** field cards (can only happen when the initial deal happened to place 2 cards of
-  the same month on the field, since normal play/draw resolution never leaves 2 unstacked
-  same-month cards sitting on the field) -> capture all 3, and watch the following draw for
-  ttadak (section 6).
-- Matches **3** field cards -> capture all 4 (this is the "sweep" completion of a bomb/ppeok pile).
+- Matches **exactly 1** field card -> capture both (they move to the player's captured pile) --
+  though not immediately; see the deferred/`pending_pair` note below.
+- Matches **exactly 2** field cards -> a real decision, `DecisionNode.CAPTURE_CHOICE`: the player
+  chooses which of the two to pair with. Quoting pagat: "If there are two cards of this month in
+  the layout, you can choose on which one you will place your played card." The unchosen one is
+  simply left on the field -- the rules don't say it goes anywhere, so `resolve_capture_choice`
+  doesn't move it. This can happen on either half of a turn, since a played *or* a drawn card is
+  just as much "a single card being placed against the layout" either way:
+  - From the hand-play: the chosen pair defers exactly like the 1-match case below, because the
+    forced draw that follows still needs checking for a ppeok or a bigger sweep.
+  - From the forced draw itself: there's no further draw left this turn to defer to, so the chosen
+    pair captures immediately.
+
+  **Correction, 2026-10:** earlier versions of this project captured all 3 immediately with no
+  choice, sourced (without realizing the two disagreed) from gostopguide's version of this rule
+  rather than pagat's. A user who's actually played the game caught it. Every trained model and
+  every published result up to that point was produced against the wrong version -- see the
+  Corrections section of the README.
+- Matches **3** field cards -> capture all 4 (this is the "sweep" completion of a bomb/ppeok pile,
+  or of a CAPTURE_CHOICE pair whose field pair's month gets drawn right after -- see section 5).
+- **Deferred pairs (`pending_pair`):** a hand-play or draw that matches exactly 1 field card isn't
+  captured the instant it matches -- it's held until the following draw is known, because if that
+  draw is *also* the same month, the pair plus the draw lock as a ppeok (section 5) instead of
+  being captured. A CAPTURE_CHOICE that came from the hand-play becomes a pending pair the same
+  way once answered, for the same reason; the field literally has 3 cards of that month sitting
+  together at that point (both original candidates plus the played card), which is how
+  `resolve_draw` tells "this would be a 3-card ppeok" apart from "this is actually a 4-card sweep,
+  because it already started from 3, not 1."
 - **Sweep bonus (`SWEEP_BONUS_PI`, pinned = 1):** if a single capture empties the field entirely,
   each opponent pays the capturing player 1 pi as a bonus.
 
@@ -104,12 +132,23 @@ sweep-completion capture-all-4 case above). Pinned explicitly because casual rul
 disagree on exact sequencing — this is the mechanical definition both pagat and gostopguide
 independently converge on when read carefully.
 
-## 6. Ttadak (따닥) — `TTADAK_BONUS_MODE = "SAME_TURN_DOUBLE_CAPTURE"`
+This is specifically the **1-match** pending pair reaching a 3rd card. A pending pair that came
+from a CAPTURE_CHOICE (section 4) already started from 3 cards on the field, so its own matching
+draw makes 4, not 3 -- that's a straight capture, not a ppeok. Pagat states this case explicitly:
+"If your played card matched two layout cards and the stock card is also that month, you capture
+all four cards of this month."
 
-Your hand card captures 2 field cards of the same month in one move, **and** the subsequent forced
-deck draw is also that month (completing capture of the 4th card in the *same turn*). This
-back-to-back double-capture is ttadak. Bonus: each opponent pays the capturing player 1 pi
-(`TTADAK_PENALTY_PI = 1`).
+## 6. Ttadak (따닥) — retired
+
+Earlier versions of this project had a ttadak bonus: a hand-play matching 2 field cards would
+capture all 3 immediately, and if the following draw was also that month, capturing the 4th too
+counted as "ttadak" and paid a bonus. That was gostopguide's version of the 2-field-card-match
+rule (section 4) -- the version this project no longer follows, since it conflicts with pagat's
+"you choose which one to pair with," which a user who's actually played the game confirmed is the
+one they expect. Once a hand card matching 2 field cards stopped auto-capturing all 3, there was
+nothing left for ttadak's trigger condition to fire on, so it was removed rather than built on a
+reinterpreted definition that no source actually states. `TTADAK_BONUS_MODE`,
+`TTADAK_PENALTY_PI`, `EventType.TTADAK`, and `GameState.ttadak_watch_month` no longer exist.
 
 ## 7. Bomb (폭탄) — `BOMB_MODE = "THREE_IN_HAND_PLUS_FIELD"`
 
@@ -218,8 +257,8 @@ training episode either way.
     versus 1 for an ordinary junk card), regardless of which of the three cases above put it there.
     `NUM_BONUS_CARDS` has no fixed limit when enabled; `3` is the pinned default, since real decks
     range from a few to as many as the players agree on. Not to be confused with
-    `PlayerState.bonus_pi_received`/`bonus_pi_paid`, an unrelated existing mechanic (sweep/ttadak
-    penalty payments, sections 4/6) that happens to share the word "bonus".
+    `PlayerState.bonus_pi_received`/`bonus_pi_paid`, an unrelated existing mechanic (sweep/ppeok
+    penalty payments, sections 4/5) that happens to share the word "bonus".
   - **The served search bot and the rules engine fully support bonus cards**, verified by actually
     playing games with them through the real FastAPI app (`TestClient` against `api.main.app`, not
     just unit-level patches). `rl/action_space.py`'s SKIP/GO/STOP now sit at `NUM_CARDS`,
