@@ -10,6 +10,13 @@ checkpoints*/*.json
 node_modules/
 dist/
 web/.vite/
+# Card art you drop into web/public/cards/ (see its README) stays local by default -- a scan of a
+# commercial deck isn't yours to publish, and this repo is public. Remove these lines explicitly if
+# you've confirmed you have the rights to publish whatever you put there.
+web/public/cards/*.png
+web/public/cards/*.jpg
+web/public/cards/*.jpeg
+web/public/cards/*.webp
 
 .DS_Store
 Thumbs.db
