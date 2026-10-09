@@ -1,5 +1,3 @@
-import { useCardMeta } from "../state/CardMetaContext";
-
 interface BombPromptProps {
   legalOptions: (number | string)[];
   onBomb: (month: number) => void;
@@ -8,25 +6,21 @@ interface BombPromptProps {
 }
 
 export function BombPrompt({ legalOptions, onBomb, onSkip, busy }: BombPromptProps) {
-  const meta = useCardMeta();
-  const bombCardIds = legalOptions.filter((o): o is number => typeof o === "number");
+  // legalOptions for a bomb decision are already month numbers (plus "SKIP"), not card ids -- see
+  // GoStopEngine.legal_options()/available_bombs(). No card lookup needed, and doing one (treating
+  // the month as if it were a card id to look up) is exactly the bug that was here before: it sent
+  // whatever month that unrelated card id happened to belong to instead of the real one.
+  const bombMonths = legalOptions.filter((o): o is number => typeof o === "number");
 
   return (
     <div className="prompt prompt--bomb">
       <p>You can declare a bomb!</p>
       <div className="prompt__actions">
-        {bombCardIds.map((id) => {
-          const month = meta.get(id)?.month;
-          // A bomb option's card always has a real month (bombing needs 3 hand cards of one month,
-          // which a bonus card -- RULES.md #12 -- can never be part of); this is just satisfying the
-          // type checker, not a real runtime case.
-          const disabled = busy || month == null;
-          return (
-            <button type="button" key={id} disabled={disabled} onClick={() => month != null && onBomb(month)}>
-              Bomb month {month}
-            </button>
-          );
-        })}
+        {bombMonths.map((month) => (
+          <button type="button" key={month} disabled={busy} onClick={() => onBomb(month)}>
+            Bomb month {month}
+          </button>
+        ))}
         <button type="button" disabled={busy} onClick={onSkip}>Skip</button>
       </div>
     </div>
