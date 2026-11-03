@@ -2,10 +2,11 @@ import { useCallback, useRef, useState } from "react";
 import { createSession, nextHand as apiNextHand, submitAction as apiSubmitAction } from "../api/client";
 import type { ActionRequest, GameStateOut } from "../types";
 
-// How long each replayed frame stays on screen, and how long a drawn card pauses face-down at the
-// deck before its frame reveals it -- see playSteps below.
+// How long each replayed frame stays on screen, and how long a drawn card pauses at the deck --
+// face-up and flashing, same as flipping the real top card -- before its frame reveals where it
+// landed. See playSteps below.
 const STEP_DELAY_MS = 650;
-const DRAW_TRANSIT_MS = 320;
+const DRAW_TRANSIT_MS = 550;
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 

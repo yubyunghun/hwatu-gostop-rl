@@ -18,45 +18,18 @@ interface CardProps {
   selectable?: boolean;
   selected?: boolean;
   onClick?: (id: number) => void;
-  /** Briefly pulses the card -- used right after it's captured, so it's obvious which card was
-   * taken (see useCaptureFlash). Caller is responsible for turning this back off after a beat. */
+  /** Briefly pulses the card -- used right after it's captured, or while it's in transit off the
+   * deck (see useCaptureFlash / Deck), so it's obvious which card it is. Caller is responsible for
+   * turning this back off after a beat. */
   flash?: boolean;
-  /** Renders the card back instead of its face, while keeping the same layoutId -- used to show a
-   * card in transit from the deck before its identity is "revealed" (see useGameSession's replay). */
-  faceDown?: boolean;
 }
 
-export function Card({ id, selectable, selected, onClick, flash, faceDown }: CardProps) {
+export function Card({ id, selectable, selected, onClick, flash }: CardProps) {
   const meta = useCardMeta().get(id);
   // Real card art, if you've dropped one in web/public/cards/ (see the README there) -- falls back
   // to the plain colored box below for any id that doesn't have one yet.
   const [imageFailed, setImageFailed] = useState(false);
-  const [backFailed, setBackFailed] = useState(false);
   if (!meta) return null;
-
-  if (faceDown) {
-    return (
-      <motion.div
-        layout
-        layoutId={`card-${id}`}
-        initial={{ opacity: 0, scale: 0.5 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.5 }}
-        transition={CARD_TRANSITION}
-        className={`card card--back${backFailed ? "" : " card--illustrated"}`}
-      >
-        {!backFailed && (
-          <img
-            className="card__art"
-            src="/cards/back.png"
-            alt="card drawn from the deck"
-            draggable={false}
-            onError={() => setBackFailed(true)}
-          />
-        )}
-      </motion.div>
-    );
-  }
 
   // A bonus card belongs to no month (RULES.md #12); give it a fixed hue instead of month-based one.
   const hue = meta.month === null ? 0 : ((meta.month - 1) * 29) % 360;

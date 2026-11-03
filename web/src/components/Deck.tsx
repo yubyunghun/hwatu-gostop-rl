@@ -3,8 +3,9 @@ import { Card } from "./Card";
 
 interface DeckProps {
   count: number;
-  /** The id of whatever card is mid-flight out of the deck right now (see useGameSession's replay),
-   * shown face-down here until the frame where it lands reveals it for real. */
+  /** The id of whatever card is mid-flight out of the deck right now (see useGameSession's replay).
+   * Shown face-up and flashing here, the same as a real draw flips the top card for everyone to see
+   * the instant it comes off the deck -- not hidden until it lands. */
   inTransitCardId?: number | null;
 }
 
@@ -24,7 +25,7 @@ export function Deck({ count, inTransitCardId }: DeckProps) {
         <AnimatePresence>
           {inTransitCardId != null && (
             <div className="deck__transit">
-              <Card id={inTransitCardId} selectable={false} faceDown />
+              <Card id={inTransitCardId} selectable={false} flash />
             </div>
           )}
         </AnimatePresence>
