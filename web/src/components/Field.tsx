@@ -6,9 +6,10 @@ interface FieldProps {
   cardIds: number[];
   selectableIds?: Set<number>;
   onSelect?: (id: number) => void;
+  flashIds?: Set<number>;
 }
 
-export function Field({ cardIds, selectableIds, onSelect }: FieldProps) {
+export function Field({ cardIds, selectableIds, onSelect, flashIds }: FieldProps) {
   const meta = useCardMeta();
   const byMonth = new Map<number, number[]>();
   for (const id of cardIds) {
@@ -30,6 +31,7 @@ export function Field({ cardIds, selectableIds, onSelect }: FieldProps) {
                   selectable={selectableIds?.has(id)}
                   selected={false}
                   onClick={onSelect}
+                  flash={flashIds?.has(id)}
                 />
               ))}
             </AnimatePresence>

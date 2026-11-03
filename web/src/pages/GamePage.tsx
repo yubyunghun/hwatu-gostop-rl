@@ -38,7 +38,7 @@ export function GamePage() {
         <TurnBanner who={turnBanner} />
         <Hand cardIds={opponent.hand} hiddenCount={opponent.hand_count} selectable={false} />
         <div className="board-area__middle">
-          <Field cardIds={state.field} />
+          <Field cardIds={state.field} flashIds={flashIds} />
           <Deck count={state.deck_count} inTransitCardId={transitCardId} />
         </div>
         <Hand

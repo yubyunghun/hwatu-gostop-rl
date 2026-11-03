@@ -5,8 +5,11 @@ import type { ActionRequest, GameStateOut } from "../types";
 // How long each replayed frame stays on screen, how long a drawn card pauses at the deck -- face-up
 // and flashing, same as flipping the real top card -- before its frame reveals where it landed, and
 // how long the "Your turn" / "Opponent's turn" banner holds before that player is allowed to act. See
-// playSteps below.
+// playSteps below. A hand-play frame lingers longer than that base delay -- it's the one moment with
+// no deck-transit pause of its own to give it away, so without extra dwell a card the opponent played
+// is just there one frame later with nothing marking which one it was.
 const STEP_DELAY_MS = 650;
+const HAND_PLAY_EXTRA_DELAY_MS = 500;
 const DRAW_TRANSIT_MS = 550;
 const TURN_BANNER_MS = 1000;
 
@@ -73,7 +76,8 @@ export function useGameSession() {
           if (replayToken.current !== token) return;
           turnOwner = frame.turn;
         }
-        if (classifyStep(prev, frame) === "draw") {
+        const kind = classifyStep(prev, frame);
+        if (kind === "draw") {
           const [drawnId] = newlyVisibleIds(prev, frame);
           if (drawnId !== undefined) {
             setTransitCardId(drawnId);
@@ -84,7 +88,7 @@ export function useGameSession() {
         setTransitCardId(null);
         setState(frame);
         prev = frame;
-        await sleep(STEP_DELAY_MS);
+        await sleep(kind === "hand_play" ? STEP_DELAY_MS + HAND_PLAY_EXTRA_DELAY_MS : STEP_DELAY_MS);
       }
     },
     [announceTurn],
