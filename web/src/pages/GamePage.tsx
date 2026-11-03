@@ -6,11 +6,12 @@ import { GameLog } from "../components/GameLog";
 import { GoStopPrompt } from "../components/GoStopPrompt";
 import { Hand } from "../components/Hand";
 import { ScoreBoard } from "../components/ScoreBoard";
+import { TurnBanner } from "../components/TurnBanner";
 import { useCaptureFlash } from "../state/useCaptureFlash";
 import { useGameSession } from "../state/useGameSession";
 
 export function GamePage() {
-  const { state, busy, error, start, act, nextHand, transitCardId } = useGameSession();
+  const { state, busy, error, start, act, nextHand, transitCardId, turnBanner } = useGameSession();
   // Called unconditionally (rules of hooks) even before `state` exists yet.
   const flashIds = useCaptureFlash(state?.recent_events ?? []);
 
@@ -34,6 +35,7 @@ export function GamePage() {
       <ScoreBoard state={state} flashIds={flashIds} />
 
       <section className="board-area">
+        <TurnBanner who={turnBanner} />
         <Hand cardIds={opponent.hand} hiddenCount={opponent.hand_count} selectable={false} />
         <div className="board-area__middle">
           <Field cardIds={state.field} />
@@ -42,7 +44,7 @@ export function GamePage() {
         <Hand
           cardIds={me.hand}
           hiddenCount={me.hand_count}
-          selectable={isMyTurn && state.pending_decision === "PLAY_CARD"}
+          selectable={isMyTurn && state.pending_decision === "PLAY_CARD" && !busy}
           onPlay={(id) => act({ type: "play_card", card_id: id })}
         />
       </section>

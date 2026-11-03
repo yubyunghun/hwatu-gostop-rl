@@ -2,11 +2,15 @@ import { useCallback, useRef, useState } from "react";
 import { createSession, nextHand as apiNextHand, submitAction as apiSubmitAction } from "../api/client";
 import type { ActionRequest, GameStateOut } from "../types";
 
-// How long each replayed frame stays on screen, and how long a drawn card pauses at the deck --
-// face-up and flashing, same as flipping the real top card -- before its frame reveals where it
-// landed. See playSteps below.
+// How long each replayed frame stays on screen, how long a drawn card pauses at the deck -- face-up
+// and flashing, same as flipping the real top card -- before its frame reveals where it landed, and
+// how long the "Your turn" / "Opponent's turn" banner holds before that player is allowed to act. See
+// playSteps below.
 const STEP_DELAY_MS = 650;
 const DRAW_TRANSIT_MS = 550;
+const TURN_BANNER_MS = 1000;
+
+export type TurnBanner = "you" | "opponent" | null;
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -42,42 +46,70 @@ export function useGameSession() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transitCardId, setTransitCardId] = useState<number | null>(null);
+  const [turnBanner, setTurnBanner] = useState<TurnBanner>(null);
   // Guards against a stale replay still writing frames after a newer action superseded it.
   const replayToken = useRef(0);
 
-  const playSteps = useCallback(async (from: GameStateOut, response: GameStateOut) => {
-    const token = ++replayToken.current;
-    const frames = [...response.steps.map(stripSteps), stripSteps(response)];
-    let prev = from;
-    for (const frame of frames) {
-      if (replayToken.current !== token) return;
-      if (classifyStep(prev, frame) === "draw") {
-        const [drawnId] = newlyVisibleIds(prev, frame);
-        if (drawnId !== undefined) {
-          setTransitCardId(drawnId);
-          await sleep(DRAW_TRANSIT_MS);
-          if (replayToken.current !== token) return;
-        }
-      }
-      setTransitCardId(null);
-      setState(frame);
-      prev = frame;
-      await sleep(STEP_DELAY_MS);
-    }
+  /** Shows "Your turn" / "Opponent's turn" and holds it for a beat before letting that player act --
+   * both at the very start of a turn (so nobody's card is playable the instant it's theirs) and
+   * whenever the replay below crosses into a different player's turn mid-sequence. */
+  const announceTurn = useCallback(async (seat: number, viewerSeat: number, token: number) => {
+    setTurnBanner(seat === viewerSeat ? "you" : "opponent");
+    await sleep(TURN_BANNER_MS);
+    if (replayToken.current !== token) return;
+    setTurnBanner(null);
   }, []);
 
-  const start = useCallback(async (humanSeat: number, seed?: number) => {
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await createSession(humanSeat, seed);
-      setState(stripSteps(response)); // the initial deal itself isn't replayed, just shown directly
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setBusy(false);
-    }
-  }, []);
+  const playSteps = useCallback(
+    async (from: GameStateOut, response: GameStateOut) => {
+      const token = ++replayToken.current;
+      const frames = [...response.steps.map(stripSteps), stripSteps(response)];
+      let prev = from;
+      let turnOwner = from.turn;
+      for (const frame of frames) {
+        if (replayToken.current !== token) return;
+        if (frame.turn !== turnOwner) {
+          await announceTurn(frame.turn, from.viewer_seat, token);
+          if (replayToken.current !== token) return;
+          turnOwner = frame.turn;
+        }
+        if (classifyStep(prev, frame) === "draw") {
+          const [drawnId] = newlyVisibleIds(prev, frame);
+          if (drawnId !== undefined) {
+            setTransitCardId(drawnId);
+            await sleep(DRAW_TRANSIT_MS);
+            if (replayToken.current !== token) return;
+          }
+        }
+        setTransitCardId(null);
+        setState(frame);
+        prev = frame;
+        await sleep(STEP_DELAY_MS);
+      }
+    },
+    [announceTurn],
+  );
+
+  const start = useCallback(
+    async (humanSeat: number, seed?: number) => {
+      setBusy(true);
+      setError(null);
+      try {
+        const token = ++replayToken.current;
+        const response = await createSession(humanSeat, seed);
+        const initial = stripSteps(response);
+        setState(initial);
+        if (!initial.hand_over) {
+          await announceTurn(initial.turn, initial.viewer_seat, token);
+        }
+      } catch (e) {
+        setError(String(e));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [announceTurn],
+  );
 
   const act = useCallback(
     async (action: ActionRequest) => {
@@ -110,5 +142,5 @@ export function useGameSession() {
     }
   }, [state, playSteps]);
 
-  return { state, busy, error, start, act, nextHand, transitCardId };
+  return { state, busy, error, start, act, nextHand, transitCardId, turnBanner };
 }
