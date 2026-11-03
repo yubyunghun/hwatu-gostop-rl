@@ -5,10 +5,13 @@ import { GameLog } from "../components/GameLog";
 import { GoStopPrompt } from "../components/GoStopPrompt";
 import { Hand } from "../components/Hand";
 import { ScoreBoard } from "../components/ScoreBoard";
+import { useCaptureFlash } from "../state/useCaptureFlash";
 import { useGameSession } from "../state/useGameSession";
 
 export function GamePage() {
   const { state, busy, error, start, act, nextHand } = useGameSession();
+  // Called unconditionally (rules of hooks) even before `state` exists yet.
+  const flashIds = useCaptureFlash(state?.recent_events ?? []);
 
   if (!state) {
     return (
@@ -27,7 +30,7 @@ export function GamePage() {
 
   return (
     <div className="game-page">
-      <ScoreBoard state={state} />
+      <ScoreBoard state={state} flashIds={flashIds} />
 
       <section className="board-area">
         <Hand cardIds={opponent.hand} hiddenCount={opponent.hand_count} selectable={false} />

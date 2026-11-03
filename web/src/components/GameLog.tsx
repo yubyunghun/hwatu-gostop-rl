@@ -6,6 +6,7 @@ const LABEL: Record<string, string> = {
   SWEEP: "swept the field! +pi",
   PPEOK_LOCK: "ppeok! cards locked on field",
   BOMB: "bomb!",
+  BONUS_CARD: "bonus card banked",
   GO: "called GO",
   STOP: "called STOP",
   NAGARI: "nagari -- deck exhausted, no winner",

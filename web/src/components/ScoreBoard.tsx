@@ -1,7 +1,7 @@
 import type { GameStateOut } from "../types";
 import { CapturedPile } from "./CapturedPile";
 
-export function ScoreBoard({ state }: { state: GameStateOut }) {
+export function ScoreBoard({ state, flashIds }: { state: GameStateOut; flashIds?: Set<number> }) {
   return (
     <div className="score-board">
       {state.players.map((p) => (
@@ -10,7 +10,7 @@ export function ScoreBoard({ state }: { state: GameStateOut }) {
             {p.seat === state.viewer_seat ? "You" : "Opponent"}
             {p.seat === state.turn && !state.hand_over ? " (turn)" : ""}
           </div>
-          <CapturedPile cardIds={p.captured} score={p.score} />
+          <CapturedPile cardIds={p.captured} score={p.score} flashIds={flashIds} />
           <div className="score-board__go">go x{p.go_count}</div>
           <div className="score-board__match">match: {state.match_scores[p.seat]}</div>
         </div>

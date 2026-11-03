@@ -5,11 +5,12 @@ import { Card } from "./Card";
 interface CapturedPileProps {
   cardIds: number[];
   score: number;
+  flashIds?: Set<number>;
 }
 
 const CATEGORY_ORDER: Category[] = ["gwang", "animal", "ribbon", "junk", "bonus"];
 
-export function CapturedPile({ cardIds, score }: CapturedPileProps) {
+export function CapturedPile({ cardIds, score, flashIds }: CapturedPileProps) {
   const meta = useCardMeta();
   const counts: Record<Category, number> = { gwang: 0, animal: 0, ribbon: 0, junk: 0, bonus: 0 };
   const byCategory: Record<Category, number[]> = { gwang: [], animal: [], ribbon: [], junk: [], bonus: [] };
@@ -32,7 +33,7 @@ export function CapturedPile({ cardIds, score }: CapturedPileProps) {
       <div className="captured-pile__score">score: {score}</div>
       <div className="captured-pile__cards">
         {CATEGORY_ORDER.flatMap((cat) => byCategory[cat]).map((id) => (
-          <Card key={id} id={id} selectable={false} />
+          <Card key={id} id={id} selectable={false} flash={flashIds?.has(id)} />
         ))}
         {cardIds.length === 0 && <div className="captured-pile__empty">no captures yet</div>}
       </div>

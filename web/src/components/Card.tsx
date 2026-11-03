@@ -15,9 +15,12 @@ interface CardProps {
   selectable?: boolean;
   selected?: boolean;
   onClick?: (id: number) => void;
+  /** Briefly pulses the card -- used right after it's captured, so it's obvious which card was
+   * taken (see useCaptureFlash). Caller is responsible for turning this back off after a beat. */
+  flash?: boolean;
 }
 
-export function Card({ id, selectable, selected, onClick }: CardProps) {
+export function Card({ id, selectable, selected, onClick, flash }: CardProps) {
   const meta = useCardMeta().get(id);
   // Real card art, if you've dropped one in web/public/cards/ (see the README there) -- falls back
   // to the plain colored box below for any id that doesn't have one yet.
@@ -30,7 +33,7 @@ export function Card({ id, selectable, selected, onClick }: CardProps) {
     "--card-hue": hue,
   } as React.CSSProperties;
   const title = meta.month === null ? meta.name : `${meta.month}월 ${meta.name}`;
-  const className = `card card--${meta.category}${selectable ? " card--selectable" : ""}${selected ? " card--selected" : ""}${imageFailed ? "" : " card--illustrated"}`;
+  const className = `card card--${meta.category}${selectable ? " card--selectable" : ""}${selected ? " card--selected" : ""}${imageFailed ? "" : " card--illustrated"}${flash ? " card--flash" : ""}`;
 
   return (
     <button

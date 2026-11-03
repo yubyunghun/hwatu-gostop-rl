@@ -430,14 +430,16 @@ from `requirements.txt` plus `torch` from the CPU wheel index — see comments i
 ```
 
 **Serve the API** (the bot plays with determinized search on top of the heuristic; `api/bot_inference.py`
-also has the network-based policy):
+also has the network-based policy; bonus/joker cards -- RULES.md #12 -- are on by default here, 3 of
+them, since that's the deck this is actually meant to be played with):
 ```
+set HWATU_NUM_BONUS_CARDS=3
 .venv\Scripts\python.exe -m uvicorn api.main:app --port 8000
 ```
 
-**Optional: play with bonus cards** (off by default -- see RULES.md #12):
+**Plain 48-card deck, no bonus cards** (what every number in the Results section above was measured
+against -- just omit the env var, or set it to 0):
 ```
-set HWATU_NUM_BONUS_CARDS=3
 .venv\Scripts\python.exe -m uvicorn api.main:app --port 8000
 ```
 
