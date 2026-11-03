@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from "motion/react";
 import { useCardMeta } from "../state/CardMetaContext";
 import type { Category } from "../types";
 import { Card } from "./Card";
@@ -32,9 +33,17 @@ export function CapturedPile({ cardIds, score, flashIds }: CapturedPileProps) {
       </div>
       <div className="captured-pile__score">score: {score}</div>
       <div className="captured-pile__cards">
-        {CATEGORY_ORDER.flatMap((cat) => byCategory[cat]).map((id) => (
-          <Card key={id} id={id} selectable={false} flash={flashIds?.has(id)} />
-        ))}
+        <AnimatePresence mode="popLayout">
+          {CATEGORY_ORDER.filter((cat) => byCategory[cat].length > 0).map((cat) => (
+            <motion.div className="captured-pile__group" key={cat} layout>
+              <AnimatePresence mode="popLayout">
+                {byCategory[cat].map((id) => (
+                  <Card key={id} id={id} selectable={false} flash={flashIds?.has(id)} />
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          ))}
+        </AnimatePresence>
         {cardIds.length === 0 && <div className="captured-pile__empty">no captures yet</div>}
       </div>
     </div>

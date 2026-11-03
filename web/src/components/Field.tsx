@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from "motion/react";
 import { useCardMeta } from "../state/CardMetaContext";
 import { Card } from "./Card";
 
@@ -18,19 +19,23 @@ export function Field({ cardIds, selectableIds, onSelect }: FieldProps) {
 
   return (
     <div className="field">
-      {months.map((month) => (
-        <div className="field__pile" key={month}>
-          {byMonth.get(month)!.map((id) => (
-            <Card
-              key={id}
-              id={id}
-              selectable={selectableIds?.has(id)}
-              selected={false}
-              onClick={onSelect}
-            />
-          ))}
-        </div>
-      ))}
+      <AnimatePresence mode="popLayout">
+        {months.map((month) => (
+          <motion.div className="field__pile" key={month} layout>
+            <AnimatePresence mode="popLayout">
+              {byMonth.get(month)!.map((id) => (
+                <Card
+                  key={id}
+                  id={id}
+                  selectable={selectableIds?.has(id)}
+                  selected={false}
+                  onClick={onSelect}
+                />
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        ))}
+      </AnimatePresence>
       {cardIds.length === 0 && <div className="field__empty">field is empty</div>}
     </div>
   );

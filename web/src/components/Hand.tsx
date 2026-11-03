@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from "motion/react";
 import { useCardMeta } from "../state/CardMetaContext";
 import type { Category } from "../types";
 import { Card, CardBack } from "./Card";
@@ -18,9 +19,11 @@ export function Hand({ cardIds, hiddenCount, selectable, onPlay }: HandProps) {
     // Hidden hand (the opponent's) -- nothing to group by, we can't see what's in it.
     return (
       <div className="hand hand--hidden">
-        {Array.from({ length: hiddenCount }, (_, i) => (
-          <CardBack key={i} />
-        ))}
+        <AnimatePresence mode="popLayout">
+          {Array.from({ length: hiddenCount }, (_, i) => (
+            <CardBack key={i} />
+          ))}
+        </AnimatePresence>
       </div>
     );
   }
@@ -33,13 +36,17 @@ export function Hand({ cardIds, hiddenCount, selectable, onPlay }: HandProps) {
 
   return (
     <div className="hand">
-      {CATEGORY_ORDER.filter((cat) => byCategory[cat].length > 0).map((cat) => (
-        <div className="hand__group" key={cat}>
-          {byCategory[cat].map((id) => (
-            <Card key={id} id={id} selectable={selectable} onClick={onPlay} />
-          ))}
-        </div>
-      ))}
+      <AnimatePresence mode="popLayout">
+        {CATEGORY_ORDER.filter((cat) => byCategory[cat].length > 0).map((cat) => (
+          <motion.div className="hand__group" key={cat} layout>
+            <AnimatePresence mode="popLayout">
+              {byCategory[cat].map((id) => (
+                <Card key={id} id={id} selectable={selectable} onClick={onPlay} />
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }

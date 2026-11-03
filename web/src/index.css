@@ -228,9 +228,16 @@ body {
 .captured-pile__cards {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px;
+  gap: 4px;
   margin-top: 0.4rem;
   max-width: 220px;
+}
+.captured-pile__group {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.15);
 }
 /* Shrink the normally hand/field-sized card to fit a pile that can grow past a dozen cards. */
 .captured-pile__cards .card {

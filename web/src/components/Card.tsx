@@ -1,6 +1,9 @@
+import { motion } from "motion/react";
 import { useState } from "react";
 import { useCardMeta } from "../state/CardMetaContext";
 import type { Category } from "../types";
+
+const CARD_TRANSITION = { type: "spring", stiffness: 380, damping: 32 } as const;
 
 const CATEGORY_LABEL: Record<Category, string> = {
   gwang: "광",
@@ -36,8 +39,14 @@ export function Card({ id, selectable, selected, onClick, flash }: CardProps) {
   const className = `card card--${meta.category}${selectable ? " card--selectable" : ""}${selected ? " card--selected" : ""}${imageFailed ? "" : " card--illustrated"}${flash ? " card--flash" : ""}`;
 
   return (
-    <button
+    <motion.button
       type="button"
+      layout
+      layoutId={`card-${id}`}
+      initial={{ opacity: 0, scale: 0.5, y: -24 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.5 }}
+      transition={CARD_TRANSITION}
       className={className}
       style={style}
       disabled={!selectable}
@@ -60,14 +69,21 @@ export function Card({ id, selectable, selected, onClick, flash }: CardProps) {
           <span className="card__name">{meta.name.replace(/_/g, " ")}</span>
         </>
       )}
-    </button>
+    </motion.button>
   );
 }
 
 export function CardBack() {
   const [imageFailed, setImageFailed] = useState(false);
   return (
-    <div className={`card card--back${imageFailed ? "" : " card--illustrated"}`}>
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.5 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.5 }}
+      transition={CARD_TRANSITION}
+      className={`card card--back${imageFailed ? "" : " card--illustrated"}`}
+    >
       {!imageFailed && (
         <img
           className="card__art"
@@ -77,6 +93,6 @@ export function CardBack() {
           onError={() => setImageFailed(true)}
         />
       )}
-    </div>
+    </motion.div>
   );
 }
