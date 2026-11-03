@@ -5,6 +5,8 @@ guarantees a served bot plays by the exact rules and observation shape it was
 trained under, with no second implementation to drift out of sync.
 """
 
+from typing import Callable
+
 import numpy as np
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -82,12 +84,25 @@ def list_cards():
     return [card_out(c.id) for c in CARDS]
 
 
+def _with_step_replay(session: Session, run: Callable[[], None]) -> GameStateOut:
+    """Runs `run` (whatever engine-mutating work the request needs) while recording a snapshot after
+    every visible sub-step (engine.on_step -- see engine/engine.py), then returns the final state
+    with that step-by-step replay attached, so the client can animate through it instead of jumping
+    straight from before to after."""
+    steps: list[GameStateOut] = []
+    session.engine.on_step = lambda: steps.append(serialize_state(session))
+    try:
+        run()
+    finally:
+        session.engine.on_step = None
+    return serialize_state(session, steps=steps)
+
+
 @app.post("/sessions", response_model=GameStateOut)
 def create_session(req: CreateSessionRequest, manager: SessionManager = Depends(get_session_manager),
                     bot_policy=Depends(get_bot_policy)):
     session = manager.create(human_seat=req.human_seat, seed=req.seed)
-    _run_bot_turns(session, bot_policy)
-    return serialize_state(session)
+    return _with_step_replay(session, lambda: _run_bot_turns(session, bot_policy))
 
 
 @app.get("/sessions/{session_id}", response_model=GameStateOut)
@@ -107,9 +122,12 @@ def submit_action(session_id: str, req: ActionRequest,
         session = manager.get(session_id)
     except KeyError:
         raise HTTPException(404, "session not found")
-    _apply_human_action(session, req)
-    _run_bot_turns(session, bot_policy)
-    return serialize_state(session)
+
+    def run():
+        _apply_human_action(session, req)
+        _run_bot_turns(session, bot_policy)
+
+    return _with_step_replay(session, run)
 
 
 @app.post("/sessions/{session_id}/next_hand", response_model=GameStateOut)
@@ -123,5 +141,4 @@ def next_hand(session_id: str, manager: SessionManager = Depends(get_session_man
     if not session.engine.state.hand_over:
         raise HTTPException(409, "current hand is not over yet")
     session.next_hand()
-    _run_bot_turns(session, bot_policy)
-    return serialize_state(session)
+    return _with_step_replay(session, lambda: _run_bot_turns(session, bot_policy))

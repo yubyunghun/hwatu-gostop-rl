@@ -2,7 +2,9 @@
 API (api/bot_inference.py) drive, so training and serving can never diverge on rules.
 See RULES.md section 3 for the turn-structure this implements."""
 
+import copy
 import random
+from typing import Callable
 
 from engine.bombs import available_bomb_months, resolve_bomb
 from engine.capture import resolve_capture_choice, resolve_draw, resolve_hand_play
@@ -17,8 +19,28 @@ class GoStopEngine:
         # Kept (not just used once at deal time) so a bonus card banked mid-hand (RULES.md #12) draws
         # its blind replacement from the same continuous rng stream as everything else.
         self._rng = rng or random.Random()
+        # Fires after each visible sub-step of a turn (a hand-play, a bomb, a draw, a capture-choice
+        # resolution) -- None by default (zero cost for RL training), set by a caller that wants a
+        # blow-by-blow replay to animate (see api/main.py) rather than only the final state.
+        self.on_step: Callable[[], None] | None = None
         self.state: GameState = deal_new_hand(num_players, dealer, self._rng)
         self._enter_turn()
+
+    def _snapshot(self) -> None:
+        if self.on_step is not None:
+            self.on_step()
+
+    def __deepcopy__(self, memo: dict) -> "GoStopEngine":
+        """A cloned engine (search.py determinizes hidden information by deep-copying the real engine
+        into many hypothetical worlds, then plays simulated rollouts through them) must never carry
+        over the original's on_step: otherwise every internal simulated move during planning -- not
+        just the move actually played -- fires the caller's replay hook too."""
+        clone = self.__class__.__new__(self.__class__)
+        memo[id(self)] = clone
+        clone._rng = copy.deepcopy(self._rng, memo)
+        clone.state = copy.deepcopy(self.state, memo)
+        clone.on_step = None
+        return clone
 
     # -- turn-structure plumbing -------------------------------------------------
 
@@ -67,6 +89,7 @@ class GoStopEngine:
         if s.deck:
             drawn = s.deck.pop(0)
             resolve_draw(s, s.turn, drawn)
+            self._snapshot()
             if s.pending_decision == DecisionNode.CAPTURE_CHOICE:
                 return
         self._finish_turn_after_draw()
@@ -94,6 +117,7 @@ class GoStopEngine:
         if s.pending_decision != DecisionNode.BOMB_DECISION:
             raise ValueError(f"not expecting a bomb decision (pending={s.pending_decision})")
         resolve_bomb(s, s.turn, month)
+        self._snapshot()
         # The bomb itself is always a deterministic capture-all-4 (RULES.md #7) -- but the forced
         # draw that follows can still land on an unrelated 2-card pile and need a CAPTURE_CHOICE.
         self._after_hand_play()
@@ -111,6 +135,7 @@ class GoStopEngine:
         if card_id not in s.players[s.turn].hand:
             raise ValueError(f"player {s.turn} does not hold card {card_id}")
         resolve_hand_play(s, s.turn, card_id)
+        self._snapshot()
         if s.pending_decision == DecisionNode.CAPTURE_CHOICE:
             return  # matched 2 field cards (RULES.md #4); wait for choose_capture() before drawing
         self._after_hand_play()
@@ -124,6 +149,7 @@ class GoStopEngine:
         if s.pending_decision != DecisionNode.CAPTURE_CHOICE:
             raise ValueError(f"not expecting a capture choice (pending={s.pending_decision})")
         resolve_capture_choice(s, s.turn, field_card_id)
+        self._snapshot()
         # Reset before resuming: _after_hand_play/_finish_turn_after_draw check pending_decision for
         # a *new* CAPTURE_CHOICE (the draw or end-of-turn step can independently land on its own
         # 2-card pile); leaving the one just answered in place would look like it was never resolved.

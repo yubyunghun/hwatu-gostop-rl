@@ -49,6 +49,10 @@ class GameStateOut(BaseModel):
     result: ResultOut | None
     recent_events: list[EventOut]
     match_scores: list[int]  # cumulative score per seat across every hand played in this sitting
+    # Intermediate frames since the previous response (a hand-play, a draw, a bomb, ...), in order,
+    # so a client can replay a turn step by step instead of jumping straight to the final state. Each
+    # step's own `steps` is always empty -- this is a flat list, not a nested replay-of-replays.
+    steps: list["GameStateOut"] = []
 
 
 class CreateSessionRequest(BaseModel):

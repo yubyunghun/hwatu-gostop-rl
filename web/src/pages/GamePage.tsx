@@ -1,5 +1,6 @@
 import { BombPrompt } from "../components/BombPrompt";
 import { CaptureChoicePrompt } from "../components/CaptureChoicePrompt";
+import { Deck } from "../components/Deck";
 import { Field } from "../components/Field";
 import { GameLog } from "../components/GameLog";
 import { GoStopPrompt } from "../components/GoStopPrompt";
@@ -9,7 +10,7 @@ import { useCaptureFlash } from "../state/useCaptureFlash";
 import { useGameSession } from "../state/useGameSession";
 
 export function GamePage() {
-  const { state, busy, error, start, act, nextHand } = useGameSession();
+  const { state, busy, error, start, act, nextHand, transitCardId } = useGameSession();
   // Called unconditionally (rules of hooks) even before `state` exists yet.
   const flashIds = useCaptureFlash(state?.recent_events ?? []);
 
@@ -34,7 +35,10 @@ export function GamePage() {
 
       <section className="board-area">
         <Hand cardIds={opponent.hand} hiddenCount={opponent.hand_count} selectable={false} />
-        <Field cardIds={state.field} />
+        <div className="board-area__middle">
+          <Field cardIds={state.field} />
+          <Deck count={state.deck_count} inTransitCardId={transitCardId} />
+        </div>
         <Hand
           cardIds={me.hand}
           hiddenCount={me.hand_count}

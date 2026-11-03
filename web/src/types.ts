@@ -48,6 +48,10 @@ export interface GameStateOut {
   result: ResultOut | null;
   recent_events: EventOut[];
   match_scores: number[];
+  // Intermediate frames since the previous response (a hand-play, a draw, a bomb, ...), in order, so
+  // a turn can be replayed step by step instead of jumping straight to the final state. Each step's
+  // own `steps` is always [].
+  steps: GameStateOut[];
 }
 
 export type ActionRequest =

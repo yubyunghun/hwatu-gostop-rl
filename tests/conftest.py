@@ -34,4 +34,5 @@ def make_engine(**kwargs) -> GoStopEngine:
     hand-constructed scenario rather than a real deal."""
     engine = GoStopEngine.__new__(GoStopEngine)
     engine.state = make_state(**kwargs)
+    engine.on_step = None
     return engine

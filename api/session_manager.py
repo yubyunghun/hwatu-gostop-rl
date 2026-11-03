@@ -24,6 +24,10 @@ class Session:
         self.bot_seat = engine.state.opponents(human_seat)[0]
         self.rng = rng
         self.match_scores = [0] * engine.state.num_players
+        # How far into engine.state.events serialize_state has already reported -- so each call only
+        # returns what's new since the last one, instead of a fixed-size tail that can drop events
+        # when a turn produces more than it (see serialize_state).
+        self.last_event_cursor = 0
 
     def next_hand(self) -> None:
         """Deal the next hand of the same sitting: the previous hand's winner deals (same dealer
@@ -36,6 +40,7 @@ class Session:
             self.match_scores[seat] += score
         next_dealer = choose_next_dealer(s.result, s.dealer)
         self.engine = GoStopEngine(num_players=s.num_players, dealer=next_dealer, rng=self.rng)
+        self.last_event_cursor = 0
 
 
 class SessionManager:
@@ -64,9 +69,13 @@ def card_out(card_id: int) -> CardOut:
     return CardOut(id=c.id, month=c.month, category=c.category.value, name=c.name)
 
 
-def serialize_state(session: Session, recent_event_count: int = 5) -> GameStateOut:
+def serialize_state(session: Session, steps: list[GameStateOut] = ()) -> GameStateOut:
     """Redacts any hand that isn't the viewer's (human_seat) own -- a client must
-    never receive another player's hidden hand contents over the wire."""
+    never receive another player's hidden hand contents over the wire.
+
+    `recent_events` is everything in session.engine.state.events since the last time this was
+    called for this session (session.last_event_cursor), not a fixed-size tail -- a turn can emit
+    more events than a fixed window would hold (e.g. a bomb plus its forced draw's capture)."""
     engine = session.engine
     s = engine.state
     viewer = session.human_seat
@@ -88,13 +97,14 @@ def serialize_state(session: Session, recent_event_count: int = 5) -> GameStateO
     recent_events = [
         EventOut(type=e.type.name, player=e.player, card_ids=list(e.card_ids),
                   pi_penalty=e.pi_penalty, note=e.note)
-        for e in s.events[-recent_event_count:]
+        for e in s.events[session.last_event_cursor:]
     ]
+    session.last_event_cursor = len(s.events)
 
     return GameStateOut(
         session_id=session.session_id, viewer_seat=viewer, turn=s.turn,
         pending_decision=s.pending_decision.name, legal_options=legal_options,
         players=players, field=sorted(s.field_cards()), deck_count=len(s.deck),
         hand_over=s.hand_over, result=result, recent_events=recent_events,
-        match_scores=list(session.match_scores),
+        match_scores=list(session.match_scores), steps=list(steps),
     )

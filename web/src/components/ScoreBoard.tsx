@@ -15,7 +15,6 @@ export function ScoreBoard({ state, flashIds }: { state: GameStateOut; flashIds?
           <div className="score-board__match">match: {state.match_scores[p.seat]}</div>
         </div>
       ))}
-      <div className="score-board__deck">deck: {state.deck_count} cards left</div>
     </div>
   );
 }

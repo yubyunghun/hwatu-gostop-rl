@@ -179,6 +179,61 @@ body {
   font-size: 0.85rem;
 }
 
+/* -- deck -- */
+
+.board-area__middle {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+.board-area__middle .field {
+  flex: 1;
+}
+
+.deck {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  min-width: 70px;
+}
+.deck__stack {
+  position: relative;
+  width: 52px;
+  height: 76px;
+}
+.deck__card {
+  position: absolute;
+  top: calc(var(--i) * -1.5px);
+  left: calc(var(--i) * 1.5px);
+  width: 52px;
+  height: 76px;
+  border-radius: 6px;
+  background: repeating-linear-gradient(45deg, #333, #333 4px, #444 4px, #444 8px);
+  border: 1px solid rgba(0, 0, 0, 0.5);
+}
+.deck__transit {
+  position: absolute;
+  inset: 0;
+}
+.deck__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 76px;
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  font-size: 0.7rem;
+  opacity: 0.6;
+}
+.deck__count {
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
 /* -- score board -- */
 
 .score-board {
@@ -205,12 +260,6 @@ body {
   opacity: 0.85;
   margin-top: 0.25rem;
 }
-.score-board__deck {
-  align-self: center;
-  font-size: 0.85rem;
-  opacity: 0.85;
-}
-
 .captured-pile__counts {
   display: flex;
   gap: 0.4rem;

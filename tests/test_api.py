@@ -98,10 +98,17 @@ def test_full_session_can_be_played_to_completion_via_the_api():
 
 
 def test_get_session_matches_post_action_response():
+    """`steps` and `recent_events` are one-shot ("what just happened") fields, not durable state --
+    serialize_state advances a per-session cursor each time it's called (see session_manager.py), so
+    a GET right after a POST legitimately reports nothing new there even though every other field
+    matches."""
     client = _fresh_client()
     resp = client.post("/sessions", json={"human_seat": 0, "seed": 1})
     state = resp.json()
     fetched = client.get(f"/sessions/{state['session_id']}").json()
+    for d in (state, fetched):
+        d.pop("steps")
+        d.pop("recent_events")
     assert fetched == state
 
 
