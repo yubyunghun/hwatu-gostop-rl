@@ -76,6 +76,13 @@ reasoning for the genuinely contested ones (ppeok sequencing especially). Every 
 
 ## Results
 
+> **Reading note:** every number below was measured before a capture-rule bug fixed partway
+> through this project (Correction 3 below has the full story). They're kept as-is -- a record of
+> the training methodology and of how the models compare *to each other* -- rather than re-run,
+> because the bot the API actually serves doesn't depend on any checkpoint these numbers describe
+> (also Correction 3). Read the percentages as "what this training approach achieved," not as
+> current absolute Go-Stop performance.
+
 Short version: **imitation learning reproduces a hand-written heuristic exactly, PPO from scratch never
 gets close, and PPO fine-tuning from the imitation start earns about 3.4 more points per game than the
 heuristic while winning about as many hands.** The gain comes from the go/stop decision, not from better
@@ -195,8 +202,14 @@ Three things I got wrong and fixed, kept here because they change how much to tr
    game every model above was trained and measured against. It doesn't make the comparisons
    between those models meaningless (they were all measured consistently against each other, on
    the same engine), but none of the numbers above are "real Go-Stop" numbers in the way the rest
-   of this README implies, and retraining/re-evaluating against the corrected engine is a planned
-   follow-up, not yet done as of this fix.
+   of this README implies -- they're kept as a record of the training methodology and the relative
+   comparisons between models, not as current performance claims. I decided against retraining:
+   the bot the API actually serves (`api/deps.py`) is `SearchPolicy` (`rl/search.py`), which reasons
+   from the heuristic and the live engine at request time rather than from a trained checkpoint, so
+   the served game already plays correctly against the fixed rule no matter what any checkpoint
+   above says. Spending the compute to re-run training and evaluation for numbers nothing downstream
+   depends on wasn't worth it. If that changes -- if a trained network (the fine-tune or the
+   distilled model) ever becomes what's served instead of search -- this section gets re-run first.
 
 The training-time logs in `checkpoints*/training_log.csv` still carry the old bias (they were written
 before the fix), which does not matter for how they are used here: as noisy monitoring only.
